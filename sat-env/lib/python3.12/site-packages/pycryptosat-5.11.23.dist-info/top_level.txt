@@ -1,0 +1,4 @@
+mpicosat
+msvc
+oracle
+pycryptosat
