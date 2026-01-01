@@ -283,3 +283,106 @@ def bitmap_to_model(bitmap, vpool):
 
     return model
 
+#----------------------------------------------------------------------------
+import time
+import statistics
+
+# bool rowcol, bool diags, int k_slope (if 0 then it is turned off), frame
+def encode_tomography(encoding, bitmap, m, n, rowcol=True, diags=True, k_slope=0, frames=False):
+    vpool = IDPool()
+    cnf = CNF()
+
+    if rowcol:
+        rows = get_r_vector(bitmap)
+        cols = get_c_vector(bitmap)
+        encode_rows(cnf, vpool, rows, encoding, n)
+        encode_cols(cnf, vpool, cols, encoding, m)
+
+    if diags:
+        a = get_a_vector(bitmap)
+        b = get_b_vector(bitmap)
+        encode_a_diagonals(cnf, vpool, a, encoding, m, n)
+        encode_b_diagonals(cnf, vpool, b, encoding, m, n)
+
+    if k_slope > 0:
+        a_slope = get_a_with_slope_vector(bitmap, k_slope)
+        b_slope = get_b_with_slope_vector(bitmap, k_slope)
+        encode_a_slope_diagonals(cnf, vpool, a_slope, k_slope, encoding, m, n)
+        encode_b_slope_diagonals(cnf, vpool, b_slope, k_slope, encoding, m, n)
+    
+    if frames:
+        frames_vec = get_frames_vector(bitmap)
+        encode_frames(cnf, vpool, frames_vec, encoding, m, n)
+    
+    return cnf, vpool
+
+def measure_encoding_performance(encoding, bitmap, m, n, rowcol=True, diags=True, k_slope=0, frames=False):
+    """Build and solve the CNF, measuring size and time."""
+
+    t0 = time.time()
+    cnf, vpool = encode_tomography(encoding, bitmap, m, n, rowcol, diags, k_slope, frames)
+    build_time = time.time() - t0
+
+    t1 = time.time()
+    solver = Cadical195(bootstrap_with=cnf)
+    #solver = Glucose3(bootstrap_with=cnf)
+    sat = solver.solve()
+    solve_time = time.time() - t1
+
+    n_vars = max(abs(lit) for clause in cnf.clauses for lit in clause)
+    n_clauses = len(cnf.clauses)
+
+    return {
+        "encoding": encoding,
+        "vars": n_vars,
+        "clauses": n_clauses,
+        "build_time": build_time,
+        "solve_time": solve_time,
+        "satisfiable": sat
+    }
+
+
+# script for RCI cluster which runs each scenario multiple times and computes the average
+def run_experiment(bitmap, reps_num=5):
+    m, n = bitmap.shape
+    scenarios = [
+        {"name": "rowcol only", "rowcol": True, "diags": False, "k_slope": 0, "frames": False},
+        {"name": "diags only", "rowcol": False, "diags": True, "k_slope": 0, "frames": False},
+        {"name": "rowcol + diag", "rowcol": True, "diags": True, "k_slope": 0, "frames": False},
+        {"name": "rowcol + slope2", "rowcol": True, "diags": False, "k_slope": 2, "frames": False},
+        {"name": "rowcol + slope3", "rowcol": True, "diags": False, "k_slope": 3, "frames": False},
+        {"name": "rowcol + frames", "rowcol": True, "diags": False, "k_slope": 0, "frames": True},
+        {"name": "rowcol + diag + slope2", "rowcol": True, "diags": True, "k_slope": 2, "frames": False},
+        {"name": "rowcol + diag + frames", "rowcol": True, "diags": True, "k_slope": 0, "frames": True},
+        # add some more
+    ]
+
+    encodings = [1, 2, 3]  # 1=seqcounter, 2=totalizer, 3=cardnetw
+
+    print(f"{'Scenario':<20} {'Encoding':<10} {'Vars':<8} {'Clauses':<10} "
+          f"{'BuildAvg':<10} {'SolveAvg':<10} {'SAT?'}")
+
+    for scenario in scenarios:
+        for enc in encodings:
+            build_times, solve_times = [], []
+            satisfiable = None
+
+            for _ in range(reps_num):
+                result = measure_encoding_performance(
+                    enc,
+                    bitmap,
+                    m,
+                    n,
+                    rowcol=scenario["rowcol"],
+                    diags=scenario["diags"],
+                    k_slope=scenario["k_slope"],
+                    frames=scenario["frames"]
+                )
+                build_times.append(result["build_time"])
+                solve_times.append(result["solve_time"])
+                satisfiable = result["satisfiable"]
+
+            print(f"{scenario['name']:<20} {enc:<10} "
+                  f"{result['vars']:<8} {result['clauses']:<10} "
+                  f"{statistics.mean(build_times):<10.4f} "
+                  f"{statistics.mean(solve_times):<10.4f} {satisfiable}")
