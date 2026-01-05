@@ -1,6 +1,7 @@
 from pysat.card import *
 from pysat.solvers import *
 import numpy as np
+import math
 
 def get_r_vector(bitmap):
     return np.sum(bitmap, axis=1)
@@ -76,7 +77,7 @@ xxxxxxxxxx
 
 def get_frames_vector(bitmap):
     m, n = bitmap.shape
-    frames_num = min(1 + m//2, 1 + n//2)
+    frames_num = min(math.ceil(m/2), math.ceil(n/2))
     frames_vector = []
     
     for i in range(frames_num):
@@ -159,16 +160,23 @@ def encode_b_slope_diagonals(cnf, vpool, b_slope, k, encoding, m, n):
 
         current_point = (l,n) if l <= m else (m, n - (l-m)*k)
 
+        switch = k - 1
+
         while current_point[0] >= 1 and current_point[1] >= 1:
             lits.append(vpool.id(current_point))
-            current_point = (current_point[0] - 1, current_point[1] - 1) if current_point[1] % k == 1 else (current_point[0], current_point[1] - 1)
+            current_point = (current_point[0] - 1, current_point[1] - 1) if switch == 0 else (current_point[0], current_point[1] - 1)
+
+            if switch == 0:
+                switch = k - 1
+            else:
+                switch -= 1
 
         #print([vpool.obj(l) for l in lits])
         
         cnf.extend(CardEnc.equals(lits=lits, bound=b_p, vpool=vpool, encoding=encoding))
 
 def encode_frames(cnf, vpool, frames, encoding, m, n):
-    for k, f_k in enumerate(frames, start=1):
+    for k, f_k in enumerate(frames, start=0):
         lits = []
 
         top = k
@@ -195,7 +203,7 @@ def encode_frames(cnf, vpool, frames, encoding, m, n):
         # remove duplicates
         lits = list(dict.fromkeys(lits))
 
-        #print([vpool.obj(l) for l in lits])
+        # print([vpool.obj(l) for l in lits])
         
         cnf.extend(CardEnc.equals(lits=lits, bound=f_k, vpool=vpool, encoding=encoding))
 
@@ -232,7 +240,6 @@ def show_model(model, vpool, m, n, position=None):
     plt.xticks(ticks=np.arange(n), labels=np.arange(1, n + 1))
     plt.yticks(ticks=np.arange(m), labels=np.arange(1, m + 1))
     plt.grid(False)
-    #plt.grid(True)
     plt.show()
 
 
@@ -291,6 +298,10 @@ import statistics
 def encode_tomography(encoding, bitmap, m, n, rowcol=True, diags=True, k_slope=0, frames=False):
     vpool = IDPool()
     cnf = CNF()
+
+    for i in range(1, m+1):
+        for j in range(1, n+1):
+            vpool.id((i, j))
 
     if rowcol:
         rows = get_r_vector(bitmap)

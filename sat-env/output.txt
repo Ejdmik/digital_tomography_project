@@ -1,0 +1,7 @@
+Scenario             Encoding   Vars     Clauses    BuildAvg   SolveAvg   SAT?
+rowcol only          1          14833    28195      0.1201     0.0689     True
+rowcol only          2          42497    62676      0.1587     0.1408     True
+rowcol only          3          36704    53987      0.1972     0.1169     True
+diags only           1          10125    18888      0.0831     0.0372     True
+
+
