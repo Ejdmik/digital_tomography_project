@@ -44,11 +44,15 @@
 Discrete tomography is a branch of computational imaging that focuses on reconstructing discrete images from a limited set of projections. Unlike classical tomography, where continuous images are reconstructed from dense projection data, discrete tomography deals with images composed of a finite number of intensity levels, often binary or small integer values. This restriction arises naturally in applications such as medical imaging, materials science, and industrial inspection, where objects are composed of a small set of distinguishable components.
 
 {\setlength{\parskip}{1em}
-Efficient representation and encoding of images are crucial topics in discrete tomography, as the reconstruction process depends heavily on how projection data are stored and processed. Chapter 1 introduces several encoding strategies, including standard rows, columns, and diagonal projections, but also slope-diagonal and frame-based ones. Once the image is encoded, the reconstruction problem can be translated into a set of logical constraints, which can then be solved using a SAT solver}.
+Chapter 1 brings an overview of different types of encodings used to transform high-level constraints into conjunctive normal form (CNF), since SAT solvers operate exclusively on CNF formulas. We therefore present several commonly used encoding techniques, discuss their principles, and emphasize their strengths and weaknesses.
+}
+
+{\setlength{\parskip}{1em}
+Efficient representation and encoding of images are crucial topics in discrete tomography, as the reconstruction process depends heavily on how projection data are stored and processed. Chapter 2 introduces several projecting strategies, including standard rows, columns, and diagonal projections, but also slope-diagonal and frame-based ones. Once we have the set of projections of the image, the reconstruction problem can be encoded into a set of logical constraints, which can then be solved using a SAT solver}.
 
 
 {\setlength{\parskip}{1em}
-Discrete tomography raises fundamental theoretical questions about the uniqueness and number of possible solutions for a given set of projections. Chapter 2 addresses estimating upper bounds on the number of solutions and demonstrates how the solution space scales with the image size. Overall, theoretical analysis provides a comprehensive perspective on discrete tomography as a computational discipline}.
+Discrete tomography raises fundamental theoretical questions about the uniqueness and number of possible solutions for a given set of projections. Chapter 3 addresses estimating upper bounds on the number of solutions and demonstrates how the solution space scales with the image size. Overall, theoretical analysis provides a comprehensive perspective on discrete tomography as a computational discipline}.
 
 \chapter{SAT Encodings of Cardinality Constraints}
 Cardinality constraints are a fundamental class of constraints in Boolean satisfiability problems. They restrict the number of variables that may be assigned the value true within a given set, typically enforcing conditions of the form “at most \(k\)”, “at least \(k\)”, or “exactly \(k\)” true variables. Such constraints naturally arise in a wide range of applications, including combinatorial reconstruction problems such as discrete tomography.
@@ -99,7 +103,7 @@ In these formulas we let $t_k = 1$ and $b_1^k = x_{k-n+1}$ for $n \le k < 2n$; a
 
 \section{Cardinality Networks}
 Another widely used approach for encoding cardinality constraints is based on
-\emph{cardinality networks}. These encodings rely on sorting networks, such as bitonic sorting networks, to sort the input Boolean
+cardinality networks. These encodings rely on sorting networks, such as bitonic sorting networks, to sort the input Boolean
 variables according to their truth values. The sorted outputs then represent
 the number of variables set to true, and a constraint of the form
 \(\sum_{i=1}^n x_i \le r\) can be enforced by fixing the \((r+1)\)-st output of
