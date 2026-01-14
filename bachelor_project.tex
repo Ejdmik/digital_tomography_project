@@ -1,0 +1,329 @@
+\documentclass{report}
+\usepackage{graphicx, float}
+\usepackage{geometry}
+\geometry{top=3cm, left=3cm, right=3cm, bottom=3cm}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{titling}
+\graphicspath{{images/}}
+\usepackage{setspace}
+\usepackage{indentfirst}
+\usepackage{caption}
+\usepackage[utf8]{inputenc}
+\usepackage{cite}
+
+\onehalfspacing
+
+
+\begin{document}
+
+\begin{center}
+    {\Large \textbf{Czech Technical University in Prague}}\\[0.5em]
+    {\Large \textbf{Faculty of Electrical Engineering}}\\[0.5em]
+    {\Large \textbf{Department of Computer Science}}\\[2em]
+    \includegraphics[width=0.5\linewidth]{ctu_logo_black.pdf}\\[3em]
+    {\Huge \textbf{Discrete Tomography}}\\[1.5em]
+    {\Large Bachelor Project}\\[5em]
+    {\LARGE ADAM ŠULC}\\[12em]
+    {\Large Study Program: Open Informatics}\\[0.5em]
+    {\Large Project Supervisor: Mgr. Karel Chvalovský, Ph.D.}\\[6em]
+    {\Large Prague, 2026}\\
+\end{center}
+
+\thispagestyle{empty}
+
+\newpage
+\thispagestyle{empty}
+\mbox{}
+\newpage
+
+\tableofcontents % generates the table automatically
+\thispagestyle{empty} % optional: no page number on TOC page
+
+\chapter*{Introduction}
+
+Discrete tomography is a branch of computational imaging that focuses on reconstructing discrete images from a limited set of projections. Unlike classical tomography, where continuous images are reconstructed from dense projection data, discrete tomography deals with images composed of a finite number of intensity levels, often binary or small integer values. This restriction arises naturally in applications such as medical imaging, materials science, and industrial inspection, where objects are composed of a small set of distinguishable components.
+
+{\setlength{\parskip}{1em}
+Efficient representation and encoding of images are crucial topics in discrete tomography, as the reconstruction process depends heavily on how projection data are stored and processed. Chapter 1 introduces several encoding strategies, including standard rows, columns, and diagonal projections, but also slope-diagonal and frame-based ones. Once the image is encoded, the reconstruction problem can be translated into a set of logical constraints, which can then be solved using a SAT solver}.
+
+
+{\setlength{\parskip}{1em}
+Discrete tomography raises fundamental theoretical questions about the uniqueness and number of possible solutions for a given set of projections. Chapter 2 addresses estimating upper bounds on the number of solutions and demonstrates how the solution space scales with the image size. Overall, theoretical analysis provides a comprehensive perspective on discrete tomography as a computational discipline}.
+
+\chapter{SAT Encodings of Cardinality Constraints}
+Cardinality constraints are a fundamental class of constraints in Boolean satisfiability problems. They restrict the number of variables that may be assigned the value true within a given set, typically enforcing conditions of the form “at most \(k\)”, “at least \(k\)”, or “exactly \(k\)” true variables. Such constraints naturally arise in a wide range of applications, including combinatorial reconstruction problems such as discrete tomography.
+
+Since SAT solvers operate on formulas in conjunctive normal form (CNF), cardinality constraints must be translated into CNF using dedicated encoding techniques. A naïve translation by enumerating all forbidden combinations is generally infeasible, as it leads to an exponential grow in the number of clauses. Consequently, a variety of specialized encodings (such as the sequential counter encoding, the totalizer encoding, and cardinality networks) have been proposed to represent cardinality constraints compactly and efficiently. These encodings differ in their structural properties, the number of auxiliary variables and clauses they introduce.
+
+In this chapter, we present an overview of these encoding techniques and discuss their theoretical characteristics. Based on Donald Knuth's book~\cite{knuth1997art}, particular attention is paid to their suitability for encoding constraints arising in discrete tomography problems, where large numbers of cardinality constraints are generated over overlapping variable sets.
+
+\newpage
+\section{Sequential Counter Encoding}
+The Sequential Counter Encoding, introduced by Carsten Sinz around 2005, is one of the most important and widely used in SAT.
+Let $x_1, \dots, x_n$ be Boolean variables and let $r \in \mathbb{N}$. 
+Sinz's method introduces \((n-r)r\) auxiliary variables
+\[
+s_j^k \quad \text{for } 1 \le j \le n-r,\; 1 \le k \le r.
+\]
+These variables have following interpretation: \(s^k_j = 1\) means among \(x_1, \dots, x_{j+k}\) there are at least \(k\) true variables.
+The cardinality constraint
+\[
+x_1 + \cdots + x_n \le r
+\]
+is encoded by adding the following clauses:
+\begin{align}
+(\lnot s_j^k \lor s_{j+1}^k),
+& \quad 1 \le j \le n-r-1,\; 1 \le k \le r, \label{eq:seq1} \\[4pt]
+(\lnot x_{j+k} \lor \lnot s_j^{k-1} \lor s_j^k),
+& \quad 1 \le j \le n-r,\; 1 \le k \le r. \label{eq:seq2}
+\end{align}
+Here, $s_j^0$ is assumed to be true and $s_j^{r+1}$ is omitted.
+
+\setlength{\parskip}{1em}
+\noindent{If \(F\) is any satisfiability problem and if we add the \((n-r-1)r + (n-r)(r+1)\) clauses of the forms \(1.1\) and \(1.2\), then the new set of clauses is satisfiable if and only if \(F\) is satisfiable with \(x_1 + \cdots + x_n \le r\).}
+
+
+\section{Totalizer Encoding}
+Another way to achieve the same goal, which has been proposed by O. Bailleux and Y. Boufkhad around 2003, is called Totalizer encoding.
+Consider a complete binary tree that has $n-1$ internal nodes numbered $1$ through $n-1$, and $n$ leaves numbered $n$ through $2n-1$;
+the children of node $k$, for $1 \le k < n$, are nodes $2k$ and $2k+1$.
+We form new variables $b_i^k$ for $1 \le k < n$ and $1 \le j \le t_k$, where $t_k$ is the minimum of $r$ and the number of leaves below node $k$.
+Then the following clauses do the job:
+\begin{align}
+(\bar{b}_i^{2k} \vee \bar{b}_{i+1}^{2k+1} \vee b_{i+j}^{k}), 
+& \quad 0 \le i \le t_{2k},\ 0 \le j \le t_{2k+1},\ 1 \le i+j \le t_{k+1},\ 1 < k < n; \label{eq:20} \\
+(\bar{b}_i^2 \vee \bar{b}_j^3), 
+& \quad 0 \le i \le t_2,\ 0 \le j \le t_3,\ i+j = r+1. \label{eq:21}
+\end{align}
+In these formulas we let $t_k = 1$ and $b_1^k = x_{k-n+1}$ for $n \le k < 2n$; all literals $\bar{b}_0^k$ and $b_{r+1}^k$ are to be omitted. Compared to simpler encodings, Totalizer encoding offers a good trade-off between the number of auxiliary variables and clauses, while also offering strong propagation properties in SAT solvers. In particular, it supports efficient unit propagation for upper-bound constraints, making it suitable for practical SAT-based solving.
+
+\section{Cardinality Networks}
+Another widely used approach for encoding cardinality constraints is based on
+\emph{cardinality networks}. These encodings rely on sorting networks, such as bitonic sorting networks, to sort the input Boolean
+variables according to their truth values. The sorted outputs then represent
+the number of variables set to true, and a constraint of the form
+\(\sum_{i=1}^n x_i \le r\) can be enforced by fixing the \((r+1)\)-st output of
+the network to false.
+
+Cardinality network encodings are known for their strong propagation properties, which often leads to better solver performance compared to
+simpler encodings. However, this strength comes at the cost of a larger number of auxiliary variables and clauses, typically \(\Theta(n \log^2 n)\), which can make the encoding less space-efficient than alternatives.
+
+\chapter{Image Description \& Runtime Analysis}
+
+In the following paragraphs we are going to focus on the study of binary images for which partial information is given. We will see how the amount of information given influences the running time and the number of solutions. As a reference example, we are going to use a "Cheshire cat" which is a bitmap of \( m = 25 \) rows and \( n = 30 \) columns.
+
+\begin{figure}[h]
+    \centering
+    \begin{minipage}{0.75\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{cat.jpg}
+        \caption*{\textbf{Cheshire cat} — an array of black and white pixels together with its row sums \( r_i \), column sums \( c_j \), and diagonal sums \( a_d \), \( b_d \).}
+    \end{minipage}
+\end{figure}
+
+\section{Standard Image Description}
+Let $X = (x_{i,j}) \in \{0,1\}^{m \times n}$ be an $m \times n$ bitmap. The standard encoding consists of row, column, and diagonal projections. We are given the row sums \(r_i = \sum_{j=1}^{n} x_{i,j} \text{ for } 1 \le i \le m\) and the column sums \(c_j = \sum_{i=1}^{m} x_{i,j} \text{ for } 1 \le j \le n\), as well as both sets of sums in the \(45^\circ\) diagonal direction, namely \(a_d = \sum_{i+j=d+1} x_{i,j} \text{ and } b_d = \sum_{i-j=d-n} x_{i,j} \text{for } 0 < d < m+n\).
+
+These vectors containing the sums can be represented by a sequence of clauses to be satisfied using one of the encodings as described earlier. The following tables compare three most popular encodings using a SAT solver Cadical195. In this case, sequential encoding is by far the best option. \\[0.5em]
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{rc.jpg}
+    \caption*{Image described using \(r_i, c_j\).}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{ab.jpg}
+    \caption*{Image described using \(a_d, b_d\).}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{rcab.jpg}
+    \caption*{Image described using \(r_i, c_j, a_d, b_d\).}
+\end{figure}
+
+\section{Slope-Diagonal Description}
+First, we have to carefully define slope diagonals. Let
+$k \in \mathbb{N}$ be a fixed slope parameter. \\
+For $d = 1, \dots, m + \left\lceil \frac{n}{k} \right\rceil - 1$, we define the
+\emph{A-slope diagonal sums} by
+\[
+a^{(k)}_d
+=
+\sum_{\substack{1 \le i \le m \\ 1 \le j \le n \\
+i + \left\lfloor \frac{j-1}{k} \right\rfloor = d}}
+x_{i,j}.
+\]
+Similarly, we define the \emph{B-slope diagonal sums} by
+\[
+b^{(k)}_d
+=
+\sum_{\substack{1 \le i \le m \\ 1 \le j \le n \\
+(m - i + 1) + \left\lfloor \frac{j-1}{k} \right\rfloor = d}}
+x_{i,j}.
+\] 
+Note that for \(k = 1\) we obtain regular diagonal sum vectors.\\
+Suppose that we are given \(a^{(k)}_d\) and \(b^{(k)}_d\) for a fixed \(k\). In the following tables, we can see how \(a^{(k)}_d\) and \(b^{(k)}_d\) together with row and column vectors influence the running time for various slopes \(k\).
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{a2b2.jpg}
+    \caption*{Image described using \(a^{(2)}_d, b^{(2)}_d\).}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{a5b5.jpg}
+    \caption*{Image described using \(a^{(5)}_d, b^{(5)}_d\).}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{a10b10.jpg}
+    \caption*{Image described using \(a^{(10)}_d, b^{(10)}_d\).}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{rca2b2.jpg}
+    \caption*{Image described using \(r_i, c_j, a^{(2)}_d, b^{(2)}_d\).}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{rca5b5.jpg}
+    \caption*{Image described using \(r_i, c_j, a^{(5)}_d, b^{(5)}_d\).}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{rca10b10.jpg}
+    \caption*{Image described using \(r_i, c_j, a^{(10)}_d, b^{(10)}_d\).}
+\end{figure}
+
+
+\newpage
+\section{Frame-Based Description}
+For
+\[
+s = 1, \dots, \left\lceil \frac{\min(m,n)}{2} \right\rceil,
+\]
+we define the \emph{$s$-th frame sum} by
+\[
+f_s
+=
+\sum_{\substack{
+s \le i \le m-s+1 \\
+s \le j \le n-s+1 \\
+(i = s) \,\lor\, (i = m-s+1) \,\lor\, (j = s) \,\lor\, (j = n-s+1)
+}}
+x_{i,j}.
+\]
+The results below demonstrate what happens if we create new constraints from given sums \(f_s\). As we have already seen in the previous section, sequential counter encoding renders best results.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{f.jpg}
+    \caption*{Image described using \(f_s\).}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{rcf.jpg}
+    \caption*{Image described using \(r_i, c_j, f_s\).}
+\end{figure}
+
+\section{Important Remarks}
+All of the reported runtime measurements were obtained through local testing on a personal computer. To draw reliable and statistically meaningful conclusions, it would be necessary to run these experiments on a server or, for example, on an RCI cluster.
+
+Furthermore, it is possible to combine those descriptions and use more of them to encode an image. That would lead to decrease in number of solutions but also to a big increase in the running time. Unfortunately, I was not able to get any reasonable results on my computer.
+
+\chapter{Theoretical Analysis of the Number of Solutions}
+In this chapter, we are going to try to estimate a number of solutions for given set of projections of an image. Because it is computationally demanding to determine the exact number of solutions for larger images, we will provide some theoretical arguments and bound the number of solutions from above, and also show that solutions grow with the size of the image.
+\section{Estimating the Upper Bound on Solutions}
+Our goal is to determine a generous upper bound on the possible number of different sets of input data \(\{r_i, c_j, a_d, b_d\}\) that might be given to an \(m \times n\) digital tomography problem, by assuming that each of those sums independently has any of its possible values. We will also show how does this bound compare to \(2^{mn}\), which is the total number of bitmaps of size \(m \times n\). We will demonstrate our result on a bitmap with \(m = 25\), \(n = 30\).
+
+We start with some basic observations. Since the length of the vectors is bounded, we obtain the following inequalities:
+\[0 \le r_i \le n\]
+\[0 \le c_j \le m\]
+\[0 \le a_d, b_d \le min\{d, m, n, m+n-d\}\]
+
+Without loss of generality, suppose that \(m \le n\).
+Each of the \(m\) rows consists of \(n\) pixels, so the sum of each row can take values in \(\{0,1,\dots, n\). Thus, there are \((n+1)\) possible values for each row sum, and consequently \((n+1)^m\) possible distinct row sum vectors in total.
+Using the same reasoning, we obtain that there are \((m+1)^n\) possible distinct column sum vectors in total.
+
+Next, note that there are exactly \((m+n-1)\) diagonals and also anti-diagonals. Thus we only to compute the number of possibilities for diagonals and then simply square it. 
+A diagonal with index d contains exactly \(min\{d,m,n,m+n-d\}\) pixels. Thus, the total number of possible distinct diagonal sum vectors is \[
+\prod_{d=1}^{m+n-1}{(1+min\{d,m,n,m+n-d\}})\]
+We can further simplify this expression knowing that the lengths are \(1,2,\dots,m,m,\dots,m,m-1,\dots,2,1\). Thus, the product becomes \[
+\prod_{k=1}^m{(k+1)}\cdot(m+1)^{n-m}\cdot\prod_{k=1}^{m-1}{(k+1)}
+\]
+Using factorials, we can express the number of possibilities as \[
+(m+1)! \cdot (m+1)^{n-m} \cdot m!
+\]
+
+Putting it all together, we have shown that the total number \(B\) of possible combinations of row, column, and diagonal sums is \[
+(n+1)^m(m+1)^n((m+1)!(m+1)^{n-m}m!)^2
+\]
+
+For \(m = 25\) and \(n = 30\), one can compute that $B \approx 3 \times 10^{197}$. If we roughly assume that bitmaps are "evenly distributed" among tomography vectors, then an application of the pigeonhole principle shows that the average number of bitmaps per tomography vector is \(\frac{2^{mn}}{B}\).
+This estimate is not exact but is intended to be informative. Since \(\frac{2^{750}}{B} \approx 2 \cdot 10^{28}\), we can conclude that a "random" \(25 \times 30\) digital tomography problem typically has more than \(10^{28}\) solutions.
+
+The following goal is to show the what happens if we use slope diagonals instead the regular ones. Let $k \in \mathbb{N}$ be a fixed slope parameter. By definition, an image contains exactly \((m+\lceil \frac{n}{k} \rceil -1)\) slope diagonals (and also slope anti-diagonals). Assume that \(m \le n\) and define \(I= min\{m-1, \lfloor \frac{n-1}{k} \rfloor \}\). This number represents how many slope diagonals increase in length before reaching the maximum length \(L = I \cdot k + min\{k, n - I \cdot k\}\). We can divide the slope diagonals into 3 categories: increase phase, plateau phase and decrease phase. First, there are exactly $I$ slope diagonals in the increase phase and their lengths are \(k, 2k, \dots, I \cdot k\). Next comes the plateau phase which contains exactly \(P\) slope diagonals with length \(L\), where \[
+P =
+\begin{cases}
+m - I, & \text{if } I < m-1, \\
+\lceil \frac{n}{k} \rceil - I, & \text{otherwise}.
+\end{cases}
+\]
+\newpage
+Lastly, exactly \(D\) slope diagonals belong to the decrease phase and their lengths are \(L - k, L - 2k, \cdots\), where \[
+D =
+\begin{cases}
+\lceil \frac{n}{k} \rceil - 1, & \text{if } I < m-1, \\
+\lceil \frac{n}{k} \rceil - P, & \text{otherwise}.
+\end{cases}
+\]
+Now we can express the number of possible distinct slope-diagonal sum vector as \[
+\prod_{l=1}^I{kl} \cdot L^P \cdot \prod_{l=1}^D{(L-kl)}
+\]
+For \(m = 25\), \(n = 30\) and \(k=2\), we can easily compute that \(I = 14, L = 30, P = 11\) and \(D = 14\). Using the expressions for number of row and column sum vectors computed above, we finally obtain \(B \propto 10^{126}\). Since \(\frac{2^{750}}{B} \propto 10^{99}\), we can conclude that a "random" \(25 \times 30\) digital tomography problem encoded using row, column and slope diagonal sums with \(k=2\) typically has more than \(10^{99}\) solutions.
+
+In the last part, we substitute the diagonals with frames. As before, assume that \(m \le n\). Observe that a \(s\)-th frame \(f_s\) contains exactly \((2m + 2n - 8s + 4\) pixels, for \(s = 1, \dots, \lceil \frac{m}{2} \rceil\). Thus, the we can express the number of frame sum vectors as \[
+\prod_{s=1}^{\lceil \frac{m}{2} \rceil}{(2m + 2n -8s+4)}
+\]
+Using the number of possibilities for row and column sums computed previously, we obtain \(B \propto 10^{103}\). Since \(\frac{2^{750}}{B} \propto 10^{122}\), we can conclude that a "random" \(25 \times 30\) digital tomography problem encoded using row, column and frame sums typically has more than \(10^{122}\) solutions.
+
+\newpage
+\section{Relation Between Number of Solutions and Image Size}
+In this section, we restrict to row, column and diagonal projections. We will show that the expected number of solutions of an \(m \times n\) tomography instance increases with $m$ and $n$. Note that this is an average-case statement, we cannot guarantee that for every instance larger images have more solutions.
+
+To prove this, we will use two estimates computed in the precedent section. Since each pixel take value 0 or 1, the total number of binary images is \(2^{mn}\). The number $T$ of distinct tomography vectors \(\le B(m,n)\), because \(B(m,n)\) counts all syntactically admissible vectors, including unrealizable ones. By applying a pigeonhole principle, we might deduce that the average number of solutions \( = \frac{2^{mn}}{T} \ge \frac{2^{mn}}{B(m,n)}\). Showing \(\frac{2^{mn}}{B(m,n)} \to \infty\) as \(m,n \to \infty\) is equivalent to the desired statement.
+
+To simplify it a little, we will use logarithms. Since the logarithm is monotone and unbounded, it is sufficient to show that \(\log(\frac{2^{mn}}{B(m,n)}) = \log(2^{mn}) - \log(B(m,n)) \to \infty\) as \(m,n \to \infty\). It is not too difficult to show \(\log(2^{mn}) = \Theta(mn)\). However, the second term is a bit more complicated to handle.
+\[\log B(m,n) = m\log(n+1) + n\log(m+1) + 2\log((m+1)!) + 2(n-m)\log(m+1) + 2\log(m!)\]
+In the next step, we apply a Stirling approximation formula: \(\log k! = k\log k -k+\mathcal{O}(\log k)\).
+\begin{align*}
+m \log (n+1) &= \Theta(m\log n) \\
+n \log (m+1) &= \Theta(n\log m) \\
+2\log((m+1)!) &= \Theta(m \log m) \\
+2(n-m)\log(m+1) &= \Theta(n \log m) \\
+2\log(m!) &= \Theta(m \log m)
+\end{align*}
+Thus, we can write \(\log B(m,n) = \Theta(m \log n + n \log m + m \log m)\).
+Since \(\log m \le \log (m+n)\) and \(\log n \le \log (m+n)\), the following inequalities holds
+\begin{align*}
+m \log n \le m\log (m+n) \\
+n \log m \le n\log (m+n) \\
+m \log m \le m\log (m+n)
+\end{align*}
+Summing them up yields \(\log B(m,n) = \mathcal{O}((m+n) \log (m+n))\). Since \(mn \gg (m+n) \log (m+n)\), \(\log(\frac{2^{mn}}{B(m,n)}) = \Theta(mn) - \mathcal{O}((m+n) \log (m+n)) \to \infty\) as \(m,n \to \infty\). That implies the desired fact \(\frac{2^{mn}}{B(m,n)} \to \infty\) as \(m,n \to \infty\).
+
+To conclude, the number of images grows much faster than the number of distinct tomography constraints. Therefore, larger images have on average more solutions than smaller ones.
+ 
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}
