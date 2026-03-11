@@ -354,18 +354,28 @@ def measure_encoding_performance(encoding, bitmap, m, n, rowcol=True, diags=True
 
 
 # script for RCI cluster which runs each scenario multiple times and computes the average
-def run_experiment(bitmap, reps_num=5):
+def run_experiment(bitmap, reps_num=3):
     m, n = bitmap.shape
     scenarios = [
         {"name": "rowcol only", "rowcol": True, "diags": False, "k_slope": 0, "frames": False},
         {"name": "diags only", "rowcol": False, "diags": True, "k_slope": 0, "frames": False},
+        {"name": "slope diags only, k = 2", "rowcol": False, "diags": False, "k_slope": 2, "frames": False},
+        {"name": "slope diags only, k = 3", "rowcol": False, "diags": False, "k_slope": 3, "frames": False},
+        {"name": "slope diags only, k = 5", "rowcol": False, "diags": False, "k_slope": 5, "frames": False},
+        {"name": "slope diags only, k = 10", "rowcol": False, "diags": False, "k_slope": 10, "frames": False},
+        {"name": "frames only", "rowcol": False, "diags": False, "k_slope": 0, "frames": True},
         {"name": "rowcol + diag", "rowcol": True, "diags": True, "k_slope": 0, "frames": False},
         {"name": "rowcol + slope2", "rowcol": True, "diags": False, "k_slope": 2, "frames": False},
         {"name": "rowcol + slope3", "rowcol": True, "diags": False, "k_slope": 3, "frames": False},
+        {"name": "rowcol + slope5", "rowcol": True, "diags": False, "k_slope": 5, "frames": False},
+        {"name": "rowcol + slope10", "rowcol": True, "diags": False, "k_slope": 10, "frames": False},
         {"name": "rowcol + frames", "rowcol": True, "diags": False, "k_slope": 0, "frames": True},
         {"name": "rowcol + diag + slope2", "rowcol": True, "diags": True, "k_slope": 2, "frames": False},
+        {"name": "rowcol + diag + slope3", "rowcol": True, "diags": True, "k_slope": 3, "frames": False},
+        {"name": "rowcol + diag + slope5", "rowcol": True, "diags": True, "k_slope": 5, "frames": False},
+        {"name": "rowcol + diag + slope10", "rowcol": True, "diags": True, "k_slope": 10, "frames": False},
         {"name": "rowcol + diag + frames", "rowcol": True, "diags": True, "k_slope": 0, "frames": True},
-        # add some more
+        {"name": "rowcol + diag + slope2 + frames", "rowcol": True, "diags": True, "k_slope": 2, "frames": True},
     ]
 
     encodings = [1, 2, 3]  # 1=seqcounter, 2=totalizer, 3=cardnetw
@@ -397,3 +407,375 @@ def run_experiment(bitmap, reps_num=5):
                   f"{result['vars']:<8} {result['clauses']:<10} "
                   f"{statistics.mean(build_times):<10.4f} "
                   f"{statistics.mean(solve_times):<10.4f} {satisfiable}")
+
+
+
+
+#--------------------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------------
+# SAT in 3D
+
+# bitmap3d.shape == (m, n, p)
+
+def get_axis_vectors(bitmap, axis):
+    return np.sum(bitmap, axis=axis)
+
+from collections import defaultdict
+
+def compute_plane_diagonals(bitmap3d, coords2d, vpool):
+    """
+    Computes diagonal and antidiagonal SAT literals and bounds
+    directly from the bitmap.
+
+    Returns:
+        diag_lits, diag_bounds
+        anti_lits, anti_bounds
+    """
+
+    diag_lits = defaultdict(list)
+    diag_bounds = defaultdict(int)
+
+    anti_lits = defaultdict(list)
+    anti_bounds = defaultdict(int)
+
+    for i, row in enumerate(coords2d):
+        for j, (z,y,x) in enumerate(row):
+
+            lit = vpool.id((z,y,x))
+            val = bitmap3d[z-1, y-1, x-1]
+
+            d = i - j
+            a = i + j
+
+            diag_lits[d].append(lit)
+            diag_bounds[d] += val
+
+            anti_lits[a].append(lit)
+            anti_bounds[a] += val
+
+    diag_keys = sorted(diag_lits.keys())
+    anti_keys = sorted(anti_lits.keys())
+
+    diag_lits_list = [diag_lits[k] for k in diag_keys]
+    diag_bounds_list = [diag_bounds[k] for k in diag_keys]
+
+    anti_lits_list = [anti_lits[k] for k in anti_keys]
+    anti_bounds_list = [anti_bounds[k] for k in anti_keys]
+
+    return diag_lits_list, diag_bounds_list, anti_lits_list, anti_bounds_list
+
+
+# def get_boxes_vector(bitmap3d):
+#     m, n, p = bitmap3d.shape
+    
+#     boxes_num = min(
+#         math.ceil(m/2),
+#         math.ceil(n/2),
+#         math.ceil(p/2)
+#     )
+    
+#     boxes_vector = []
+    
+#     for i in range(boxes_num):
+#         box_sum = 0
+        
+#         for z in range(m):
+#             for y in range(n):
+#                 for x in range(p):
+                    
+#                     dist = min(
+#                         z, m-1-z,
+#                         y, n-1-y,
+#                         x, p-1-x
+#                     )
+                    
+#                     if dist == i:
+#                         box_sum += bitmap3d[z, y, x]
+        
+#         boxes_vector.append(box_sum)
+    
+#     return np.array(boxes_vector)
+
+def get_boxes_vector(bitmap3d):
+    m,n,p = bitmap3d.shape
+    boxes_num = min((m+1)//2, (n+1)//2, (p+1)//2)
+
+    boxes = np.zeros(boxes_num, dtype=int)
+
+    for z in range(m):
+        for y in range(n):
+            for x in range(p):
+
+                dist = min(z,m-1-z,y,n-1-y,x,p-1-x)
+                boxes[dist] += bitmap3d[z,y,x]
+
+    return boxes
+
+
+#--------------------------------------------------------------------------------------------------------------
+
+def encode_xy(cnf, vpool, P_xy, encoding, p):
+    m, n = P_xy.shape
+    
+    for i in range(m):
+        for j in range(n):
+            lits = [
+                vpool.id((i+1, j+1, k+1))
+                for k in range(p)
+            ]
+            cnf.extend(
+                CardEnc.equals(
+                    lits=lits,
+                    bound=P_xy[i, j],
+                    vpool=vpool,
+                    encoding=encoding
+                )
+            )
+
+def encode_xz(cnf, vpool, P_xz, encoding, n):
+    m, p = P_xz.shape
+    
+    for i in range(m):
+        for k in range(p):
+            lits = [
+                vpool.id((i+1, j+1, k+1))
+                for j in range(n)
+            ]
+            cnf.extend(
+                CardEnc.equals(
+                    lits=lits,
+                    bound=P_xz[i, k],
+                    vpool=vpool,
+                    encoding=encoding
+                )
+            )
+
+def encode_yz(cnf, vpool, P_yz, encoding, m):
+    n, p = P_yz.shape
+    
+    for j in range(n):
+        for k in range(p):
+            lits = [
+                vpool.id((i+1, j+1, k+1))
+                for i in range(m)
+            ]
+            cnf.extend(
+                CardEnc.equals(
+                    lits=lits,
+                    bound=P_yz[j, k],
+                    vpool=vpool,
+                    encoding=encoding
+                )
+            )
+
+
+def encode_plane_diagonals_from_bitmap(cnf, vpool, bitmap3d, coords2d, encoding):
+
+    diag_lits, diag_bounds, anti_lits, anti_bounds = \
+        compute_plane_diagonals(bitmap3d, coords2d, vpool)
+
+    for lits, bound in zip(diag_lits, diag_bounds):
+
+        if bound > len(lits):
+            raise ValueError(f"Impossible diagonal bound {bound}>{len(lits)}")
+
+        cnf.extend(CardEnc.equals(
+            lits=lits,
+            bound=bound,
+            vpool=vpool,
+            encoding=encoding
+        ))
+
+    for lits, bound in zip(anti_lits, anti_bounds):
+
+        if bound > len(lits):
+            raise ValueError(f"Impossible anti bound {bound}>{len(lits)}")
+
+        cnf.extend(CardEnc.equals(
+            lits=lits,
+            bound=bound,
+            vpool=vpool,
+            encoding=encoding
+        ))
+
+def plane_xy_coords(m,n,p,z):
+    return [[(z,y,x) for x in range(1,p+1)] for y in range(1,n+1)]
+
+def plane_xz_coords(m,n,p,y):
+    return [[(z,y,x) for x in range(1,p+1)] for z in range(1,m+1)]
+
+def plane_yz_coords(m,n,p,x):
+    return [[(z,y,x) for y in range(1,n+1)] for z in range(1,m+1)]
+
+def encode_all_diagonals(cnf, vpool, bitmap3d, encoding):
+
+    m,n,p = bitmap3d.shape
+
+    # XY planes
+    for z in range(1,m+1):
+        coords = plane_xy_coords(m,n,p,z)
+        encode_plane_diagonals_from_bitmap(
+            cnf, vpool, bitmap3d, coords, encoding
+        )
+
+    # XZ planes
+    for y in range(1,n+1):
+        coords = plane_xz_coords(m,n,p,y)
+        encode_plane_diagonals_from_bitmap(
+            cnf, vpool, bitmap3d, coords, encoding
+        )
+
+    # YZ planes
+    for x in range(1,p+1):
+        coords = plane_yz_coords(m,n,p,x)
+        encode_plane_diagonals_from_bitmap(
+            cnf, vpool, bitmap3d, coords, encoding
+        )
+
+
+def encode_boxes(cnf, vpool, boxes, encoding, m, n, p):
+    for k, b_k in enumerate(boxes, start=0):
+        lits = []
+
+        front  = k
+        back   = m - k - 1
+        top    = k
+        bottom = n - k - 1
+        left   = k
+        right  = p - k - 1
+
+        # --- Z faces (front & back) ---
+        for y in range(top, bottom + 1):
+            for x in range(left, right + 1):
+                lits.append(vpool.id((front + 1, y + 1, x + 1)))
+                lits.append(vpool.id((back  + 1, y + 1, x + 1)))
+
+        # --- Y faces (top & bottom) ---
+        for z in range(front, back + 1):
+            for x in range(left, right + 1):
+                lits.append(vpool.id((z + 1, top    + 1, x + 1)))
+                lits.append(vpool.id((z + 1, bottom + 1, x + 1)))
+
+        # --- X faces (left & right) ---
+        for z in range(front, back + 1):
+            for y in range(top, bottom + 1):
+                lits.append(vpool.id((z + 1, y + 1, left  + 1)))
+                lits.append(vpool.id((z + 1, y + 1, right + 1)))
+
+        # remove duplicates (edges & corners appear multiple times)
+        lits = list(dict.fromkeys(lits))
+
+        cnf.extend(CardEnc.equals(
+            lits=lits,
+            bound=b_k,
+            vpool=vpool,
+            encoding=encoding
+        ))
+
+
+#--------------------------------------------------------------------------------------------------------------------
+
+def encode_tomography3d(encoding, bitmap3d, rowcol3d=True, diags3d=True, boxes=False):
+    m, n, p = bitmap3d.shape
+
+    vpool = IDPool()
+    cnf = CNF()
+
+    for z in range(1, m+1):
+        for y in range(1, n+1):
+            for x in range(1, p+1):
+                vpool.id((z, y, x))
+
+    if rowcol3d:
+        P_xy = get_axis_vectors(bitmap3d, axis=2)
+        P_xz = get_axis_vectors(bitmap3d, axis=1)
+        P_yz = get_axis_vectors(bitmap3d, axis=0)
+
+        encode_xy(cnf, vpool, P_xy, encoding, p)
+        encode_xz(cnf, vpool, P_xz, encoding, n)
+        encode_yz(cnf, vpool, P_yz, encoding, m)
+
+    
+    if diags3d:
+        encode_all_diagonals(cnf, vpool, bitmap3d, encoding)
+
+
+    if boxes:
+        boxes_vec = get_boxes_vector(bitmap3d)
+        encode_boxes(cnf, vpool, boxes_vec, encoding, m, n, p)
+
+    return cnf, vpool
+
+
+def measure_encoding_performance3d(encoding, bitmap3d, rowcol3d=True, diags3d=True, boxes=False):
+
+    t0 = time.time()
+    cnf, vpool = encode_tomography3d(
+        encoding,
+        bitmap3d,
+        rowcol3d=rowcol3d,
+        diags3d=diags3d,
+        boxes=boxes
+    )
+    build_time = time.time() - t0
+
+    t1 = time.time()
+    solver = Cadical195(bootstrap_with=cnf)
+    sat = solver.solve()
+    solve_time = time.time() - t1
+
+    n_vars = max(abs(lit) for clause in cnf.clauses for lit in clause)
+    n_clauses = len(cnf.clauses)
+
+    return {
+        "encoding": encoding,
+        "vars": n_vars,
+        "clauses": n_clauses,
+        "build_time": build_time,
+        "solve_time": solve_time,
+        "satisfiable": sat
+    }
+
+
+def run_experiment3d(bitmap3d, reps_num=3):
+
+    scenarios = [
+        {"name": "axes only", "rowcol3d": True, "diags3d": False, "boxes": False},
+        {"name": "diags only", "rowcol3d": False, "diags3d": True, "boxes": False},
+        {"name": "boxes only", "rowcol3d": False, "diags3d": False, "boxes": True},
+        {"name": "axes + diags", "rowcol3d": True, "diags3d": True, "boxes": False},
+        {"name": "axes + boxes", "rowcol3d": True, "diags3d": False, "boxes": True},
+        {"name": "axes + diags + boxes", "rowcol3d": True, "diags3d": True, "boxes": True},
+    ]
+
+    encodings = [1, 2, 3]  # seqcounter, totalizer, cardnetw
+
+    print(f"{'Scenario':<25} {'Encoding':<10} {'Vars':<10} {'Clauses':<12} "
+          f"{'BuildAvg':<10} {'SolveAvg':<10} {'SAT?'}")
+
+    for scenario in scenarios:
+        for enc in encodings:
+
+            build_times = []
+            solve_times = []
+            satisfiable = None
+
+            for _ in range(reps_num):
+                result = measure_encoding_performance3d(
+                    enc,
+                    bitmap3d,
+                    rowcol3d=scenario["rowcol3d"],
+                    diags3d=scenario["diags3d"],
+                    boxes=scenario["boxes"]
+                )
+
+                build_times.append(result["build_time"])
+                solve_times.append(result["solve_time"])
+                satisfiable = result["satisfiable"]
+
+            print(f"{scenario['name']:<25} {enc:<10} "
+                  f"{result['vars']:<10} {result['clauses']:<12} "
+                  f"{statistics.mean(build_times):<10.4f} "
+                  f"{statistics.mean(solve_times):<10.4f} "
+                  f"{satisfiable}")

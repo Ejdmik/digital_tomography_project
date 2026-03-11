@@ -1,7 +1,40 @@
 Scenario             Encoding   Vars     Clauses    BuildAvg   SolveAvg   SAT?
-rowcol only          1          14833    28195      0.1201     0.0689     True
-rowcol only          2          42497    62676      0.1587     0.1408     True
-rowcol only          3          36704    53987      0.1972     0.1169     True
-diags only           1          10125    18888      0.0831     0.0372     True
-
-
+rowcol only          1          14833    28195      0.1289     0.0723     True
+rowcol only          2          42497    62676      0.2704     0.1519     True
+rowcol only          3          36704    53987      0.1884     0.1157     True
+diags only           1          10125    18888      0.0742     0.0379     True
+diags only           2          42655    63039      0.1992     0.3652     True
+diags only           3          33281    48982      0.1998     0.1783     True
+slope diags only, k = 2 1          13009    24621      0.0841     0.0442     True
+slope diags only, k = 2 2          39648    58491      0.1724     0.2329     True
+slope diags only, k = 2 3          33405    49130      0.1664     0.1838     True
+slope diags only, k = 3 1          14207    26987      0.0944     0.0560     True
+slope diags only, k = 3 2          39804    58694      0.2172     0.3157     True
+slope diags only, k = 3 3          34191    50276      0.1792     0.9151     True
+slope diags only, k = 5 1          15235    29027      0.0922     0.0463     True
+slope diags only, k = 5 2          38915    57334      0.1886     0.1048     True
+slope diags only, k = 5 3          34038    50021      0.2022     0.0942     True
+slope diags only, k = 10 1          15332    29202      0.1085     0.0542     True
+slope diags only, k = 10 2          39304    57904      0.2020     0.1198     True
+slope diags only, k = 10 3          34116    50124      0.1958     0.1112     True
+frames only          1          19221    36947      0.1434     0.0701     True
+frames only          2          46333    68388      0.2546     0.1277     True
+frames only          3          35648    52361      0.1880     0.1021     True
+rowcol + diag        1          24208    47083      0.1686     8.5356     True
+rowcol + diag        2          84402    125715     0.4375     56.7985    True
+rowcol + diag        3          69235    102969     0.3899     4.5530     True
+rowcol + slope2      1          27092    52816      0.2328     13.1813    True
+rowcol + slope2      2          81395    121167     -0.1470    16.1468    True
+rowcol + slope2      3          69359    103117     0.4158     18.2882    True
+rowcol + slope3      1          28290    55182      -0.4149    9.5130     True
+rowcol + slope3      2          81551    121370     0.4805     59.2222    True
+rowcol + slope3      3          70145    104263     0.3919     45.8027    True
+rowcol + slope5      1          29318    57222      0.2010     4.5283     True
+rowcol + slope5      2          80662    120010     0.4405     19.5546    True
+rowcol + slope5      3          69992    104008     0.4139     26.8208    True
+rowcol + slope10     1          29415    57397      0.2094     3.4116     True
+rowcol + slope10     2          81051    120580     0.4389     48.0383    True
+rowcol + slope10     3          70070    104111     0.4057     20.9574    True
+rowcol + frames      1          33304    65142      0.2586     2.5813     True
+rowcol + frames      2          88080    131064     0.4846     35.0899    True
+rowcol + frames      3          71602    106348     0.4174     8.8998     True

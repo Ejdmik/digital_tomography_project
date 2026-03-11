@@ -1,0 +1,19 @@
+Scenario                  Encoding   Vars       Clauses      BuildAvg   SolveAvg   SAT?
+axes only                 1          342        617          0.0073     0.0052     True
+axes only                 2          1465       2181         0.0070     0.0064     True
+axes only                 3          1417       2109         0.0060     0.0040     True
+diags only                1          172        531          0.0054     0.0012     True
+diags only                2          565        1047         0.0068     0.0019     True
+diags only                3          565        1047         0.0072     0.0017     True
+boxes only                1          1516       2912         0.0083     0.0064     True
+boxes only                2          2312       3380         0.0086     0.0071     True
+boxes only                3          2114       3083         0.0719     0.0053     True
+axes + diags              1          454        1148         0.0087     0.0019     True
+axes + diags              2          1970       3228         0.0131     0.0054     True
+axes + diags              3          1922       3156         0.0141     0.0051     True
+axes + boxes              1          1798       3529         0.0109     0.0072     True
+axes + boxes              2          3717       5561         0.0158     0.0124     True
+axes + boxes              3          3471       5192         0.0139     0.0093     True
+axes + diags + boxes      1          1910       4060         0.0161     0.0059     True
+axes + diags + boxes      2          4222       6608         0.0676     0.0105     True
+axes + diags + boxes      3          3976       6239         0.0189     0.0089     True
