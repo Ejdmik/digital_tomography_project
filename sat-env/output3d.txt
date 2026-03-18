@@ -1,19 +1,19 @@
 Scenario                  Encoding   Vars       Clauses      BuildAvg   SolveAvg   SAT?
-axes only                 1          342        617          0.0073     0.0052     True
-axes only                 2          1465       2181         0.0070     0.0064     True
-axes only                 3          1417       2109         0.0060     0.0040     True
-diags only                1          172        531          0.0054     0.0012     True
-diags only                2          565        1047         0.0068     0.0019     True
-diags only                3          565        1047         0.0072     0.0017     True
-boxes only                1          1516       2912         0.0083     0.0064     True
-boxes only                2          2312       3380         0.0086     0.0071     True
-boxes only                3          2114       3083         0.0719     0.0053     True
-axes + diags              1          454        1148         0.0087     0.0019     True
-axes + diags              2          1970       3228         0.0131     0.0054     True
-axes + diags              3          1922       3156         0.0141     0.0051     True
-axes + boxes              1          1798       3529         0.0109     0.0072     True
-axes + boxes              2          3717       5561         0.0158     0.0124     True
-axes + boxes              3          3471       5192         0.0139     0.0093     True
-axes + diags + boxes      1          1910       4060         0.0161     0.0059     True
-axes + diags + boxes      2          4222       6608         0.0676     0.0105     True
-axes + diags + boxes      3          3976       6239         0.0189     0.0089     True
+axes only                 1          6350       12245        0.1084     0.0290     True
+axes only                 2          27258      40909        0.1882     0.0926     True
+axes only                 3          24206      36331        0.1608     0.0640     True
+diags only                1          8960       18541        0.0858     0.0381     True
+diags only                2          38153      58493        0.2628     0.1171     True
+diags only                3          34339      52775        0.2385     0.1080     True
+boxes only                1          60362      119184       0.5183     0.2770     True
+boxes only                2          61690      91384        0.3529     0.1817     True
+boxes only                3          51458      76036        0.3103     0.1569     True
+axes + diags              1          14540      30786        0.1525     0.0512     True
+axes + diags              2          64641      99402        0.4281     0.2090     True
+axes + diags              3          57775      89106        0.3728     0.1663     True
+axes + boxes              1          65942      131429       0.6146     0.2309     True
+axes + boxes              2          88178      132293       0.5136     0.2388     True
+axes + boxes              3          74894      112367       0.4357     0.1935     True
+axes + diags + boxes      1          74132      149970       0.6522     0.2639     True
+axes + diags + boxes      2          125561     190786       0.0325     0.3572     True
+axes + diags + boxes      3          108463     165142       0.6272     0.2789     True
