@@ -2,6 +2,8 @@ from pysat.card import *
 from pysat.solvers import *
 import numpy as np
 import math
+import statistics
+import csv
 
 def get_r_vector(bitmap):
     return np.sum(bitmap, axis=1)
@@ -335,13 +337,16 @@ def measure_encoding_performance(encoding, bitmap, m, n, rowcol=True, diags=True
     build_time = time.time() - t0
 
     t1 = time.time()
-    solver = Cadical195(bootstrap_with=cnf)
-    #solver = Glucose3(bootstrap_with=cnf)
+    #solver = Cadical195(bootstrap_with=cnf)
+    solver = Glucose3(bootstrap_with=cnf)
     sat = solver.solve()
     solve_time = time.time() - t1
 
     n_vars = max(abs(lit) for clause in cnf.clauses for lit in clause)
     n_clauses = len(cnf.clauses)
+
+    solver.delete()
+    del solver
 
     return {
         "encoding": encoding,
@@ -354,36 +359,18 @@ def measure_encoding_performance(encoding, bitmap, m, n, rowcol=True, diags=True
 
 
 # script for RCI cluster which runs each scenario multiple times and computes the average
-def run_experiment(bitmap, reps_num=3):
+def run_experiment(bitmap, reps_num=1, rowcol=True, diags=False, k_slope=0, frames=False, scenario_name="unknown", job_id="local"):
     m, n = bitmap.shape
-    scenarios = [
-        {"name": "rowcol only", "rowcol": True, "diags": False, "k_slope": 0, "frames": False},
-        {"name": "diags only", "rowcol": False, "diags": True, "k_slope": 0, "frames": False},
-        {"name": "slope diags only, k = 2", "rowcol": False, "diags": False, "k_slope": 2, "frames": False},
-        {"name": "slope diags only, k = 3", "rowcol": False, "diags": False, "k_slope": 3, "frames": False},
-        {"name": "slope diags only, k = 5", "rowcol": False, "diags": False, "k_slope": 5, "frames": False},
-        {"name": "slope diags only, k = 10", "rowcol": False, "diags": False, "k_slope": 10, "frames": False},
-        {"name": "frames only", "rowcol": False, "diags": False, "k_slope": 0, "frames": True},
-        {"name": "rowcol + diag", "rowcol": True, "diags": True, "k_slope": 0, "frames": False},
-        {"name": "rowcol + slope2", "rowcol": True, "diags": False, "k_slope": 2, "frames": False},
-        {"name": "rowcol + slope3", "rowcol": True, "diags": False, "k_slope": 3, "frames": False},
-        {"name": "rowcol + slope5", "rowcol": True, "diags": False, "k_slope": 5, "frames": False},
-        {"name": "rowcol + slope10", "rowcol": True, "diags": False, "k_slope": 10, "frames": False},
-        {"name": "rowcol + frames", "rowcol": True, "diags": False, "k_slope": 0, "frames": True},
-        {"name": "rowcol + diag + slope2", "rowcol": True, "diags": True, "k_slope": 2, "frames": False},
-        {"name": "rowcol + diag + slope3", "rowcol": True, "diags": True, "k_slope": 3, "frames": False},
-        {"name": "rowcol + diag + slope5", "rowcol": True, "diags": True, "k_slope": 5, "frames": False},
-        {"name": "rowcol + diag + slope10", "rowcol": True, "diags": True, "k_slope": 10, "frames": False},
-        {"name": "rowcol + diag + frames", "rowcol": True, "diags": True, "k_slope": 0, "frames": True},
-        {"name": "rowcol + diag + slope2 + frames", "rowcol": True, "diags": True, "k_slope": 2, "frames": True},
-    ]
-
     encodings = [1, 2, 3]  # 1=seqcounter, 2=totalizer, 3=cardnetw
 
-    print(f"{'Scenario':<20} {'Encoding':<10} {'Vars':<8} {'Clauses':<10} "
-          f"{'BuildAvg':<10} {'SolveAvg':<10} {'SAT?'}")
+    print(f"{'Scenario':<30} {'Encoding':<10} {'Vars':>8} {'Clauses':>10} "
+      f"{'BuildAvg':>10} {'SolveAvg':>10} {'SAT?':>6}")
 
-    for scenario in scenarios:
+    filename = f"results_{job_id}.csv"
+
+    with open(filename, "a", newline="") as f:
+        writer = csv.writer(f)
+
         for enc in encodings:
             build_times, solve_times = [], []
             satisfiable = None
@@ -394,19 +381,36 @@ def run_experiment(bitmap, reps_num=3):
                     bitmap,
                     m,
                     n,
-                    rowcol=scenario["rowcol"],
-                    diags=scenario["diags"],
-                    k_slope=scenario["k_slope"],
-                    frames=scenario["frames"]
+                    rowcol=rowcol,
+                    diags=diags,
+                    k_slope=k_slope,
+                    frames=frames
                 )
+
                 build_times.append(result["build_time"])
                 solve_times.append(result["solve_time"])
                 satisfiable = result["satisfiable"]
 
-            print(f"{scenario['name']:<20} {enc:<10} "
-                  f"{result['vars']:<8} {result['clauses']:<10} "
-                  f"{statistics.mean(build_times):<10.4f} "
-                  f"{statistics.mean(solve_times):<10.4f} {satisfiable}")
+            build_avg = statistics.mean(build_times)
+            solve_avg = statistics.mean(solve_times)
+
+            print(f"{scenario_name:<30} {enc:<10} "
+                  f"{result['vars']:>8} {result['clauses']:>10} "
+                  f"{build_avg:>10.4f} "
+                  f"{solve_avg:>10.4f} {str(satisfiable):>6}")
+
+            # 👇 save structured result
+            writer.writerow([
+                scenario_name,
+                enc,
+                result["vars"],
+                result["clauses"],
+                build_avg,
+                solve_avg,
+                satisfiable
+            ])
+
+    print(f"Saved results to {filename}")
 
 
 
@@ -465,37 +469,6 @@ def compute_plane_diagonals(bitmap3d, coords2d, vpool):
 
     return diag_lits_list, diag_bounds_list, anti_lits_list, anti_bounds_list
 
-
-# def get_boxes_vector(bitmap3d):
-#     m, n, p = bitmap3d.shape
-    
-#     boxes_num = min(
-#         math.ceil(m/2),
-#         math.ceil(n/2),
-#         math.ceil(p/2)
-#     )
-    
-#     boxes_vector = []
-    
-#     for i in range(boxes_num):
-#         box_sum = 0
-        
-#         for z in range(m):
-#             for y in range(n):
-#                 for x in range(p):
-                    
-#                     dist = min(
-#                         z, m-1-z,
-#                         y, n-1-y,
-#                         x, p-1-x
-#                     )
-                    
-#                     if dist == i:
-#                         box_sum += bitmap3d[z, y, x]
-        
-#         boxes_vector.append(box_sum)
-    
-#     return np.array(boxes_vector)
 
 def get_boxes_vector(bitmap3d):
     m,n,p = bitmap3d.shape
@@ -721,7 +694,8 @@ def measure_encoding_performance3d(encoding, bitmap3d, rowcol3d=True, diags3d=Tr
     build_time = time.time() - t0
 
     t1 = time.time()
-    solver = Cadical195(bootstrap_with=cnf)
+    #solver = Cadical195(bootstrap_with=cnf)
+    solver = Glucose3(bootstrap_with=cnf)
     sat = solver.solve()
     solve_time = time.time() - t1
 
@@ -738,23 +712,18 @@ def measure_encoding_performance3d(encoding, bitmap3d, rowcol3d=True, diags3d=Tr
     }
 
 
-def run_experiment3d(bitmap3d, reps_num=3):
-
-    scenarios = [
-        {"name": "axes only", "rowcol3d": True, "diags3d": False, "boxes": False},
-        {"name": "diags only", "rowcol3d": False, "diags3d": True, "boxes": False},
-        {"name": "boxes only", "rowcol3d": False, "diags3d": False, "boxes": True},
-        {"name": "axes + diags", "rowcol3d": True, "diags3d": True, "boxes": False},
-        {"name": "axes + boxes", "rowcol3d": True, "diags3d": False, "boxes": True},
-        {"name": "axes + diags + boxes", "rowcol3d": True, "diags3d": True, "boxes": True},
-    ]
+def run_experiment3d(bitmap3d, reps_num=3, rowcol3d=True, diags3d=False, boxes=False, scenario_name="unknown", job_id="local"):
 
     encodings = [1, 2, 3]  # seqcounter, totalizer, cardnetw
 
-    print(f"{'Scenario':<25} {'Encoding':<10} {'Vars':<10} {'Clauses':<12} "
-          f"{'BuildAvg':<10} {'SolveAvg':<10} {'SAT?'}")
+    print(f"{'Scenario':<30} {'Encoding':<10} {'Vars':>10} {'Clauses':>12} "
+          f"{'BuildAvg':>10} {'SolveAvg':>10} {'SAT?':>6}")
 
-    for scenario in scenarios:
+    filename = f"results3d_{job_id}.csv"
+
+    with open(filename, "a", newline="") as f:
+        writer = csv.writer(f)
+
         for enc in encodings:
 
             build_times = []
@@ -765,17 +734,32 @@ def run_experiment3d(bitmap3d, reps_num=3):
                 result = measure_encoding_performance3d(
                     enc,
                     bitmap3d,
-                    rowcol3d=scenario["rowcol3d"],
-                    diags3d=scenario["diags3d"],
-                    boxes=scenario["boxes"]
+                    rowcol3d=rowcol3d,
+                    diags3d=diags3d,
+                    boxes=boxes
                 )
 
                 build_times.append(result["build_time"])
                 solve_times.append(result["solve_time"])
                 satisfiable = result["satisfiable"]
 
-            print(f"{scenario['name']:<25} {enc:<10} "
-                  f"{result['vars']:<10} {result['clauses']:<12} "
-                  f"{statistics.mean(build_times):<10.4f} "
-                  f"{statistics.mean(solve_times):<10.4f} "
-                  f"{satisfiable}")
+            build_avg = statistics.mean(build_times)
+            solve_avg = statistics.mean(solve_times)
+
+            # Print aligned row
+            print(f"{scenario_name:<30} {enc:<10} "
+                  f"{result['vars']:>10} {result['clauses']:>12} "
+                  f"{build_avg:>10.4f} {solve_avg:>10.4f} {str(satisfiable):>6}")
+
+            # Save structured results
+            writer.writerow([
+                scenario_name,
+                enc,
+                result['vars'],
+                result['clauses'],
+                build_avg,
+                solve_avg,
+                satisfiable
+            ])
+
+    print(f"Saved results to {filename}")
