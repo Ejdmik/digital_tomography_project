@@ -763,3 +763,181 @@ def run_experiment3d(bitmap3d, reps_num=3, rowcol3d=True, diags3d=False, boxes=F
             ])
 
     print(f"Saved results to {filename}")
+
+
+#-------------------------------------------------------------------
+import random
+
+def random_vector(n, total, max_val):
+    x = []
+    remaining_sum = total
+
+    for i in range(n):
+        remaining_slots = n - i
+
+        if remaining_slots == 1:
+            # last element must take what's left
+            x.append(remaining_sum)
+        else:
+            low = max(0, remaining_sum - max_val * (remaining_slots - 1))
+            high = min(max_val, remaining_sum)
+
+            val = random.randint(low, high)
+            x.append(val)
+            remaining_sum -= val
+
+    return x
+
+
+def random_vector2(n, total, max_val):
+    x = [0] * n
+    available = list(range(n))  
+
+    for _ in range(total):
+        i = random.choice(available)
+        x[i] += 1
+
+        if x[i] == max_val:
+            available.remove(i)
+
+    return x
+
+import numpy as np
+
+def random_vector3(n, total, max_val):
+    if total < n:
+        x = [0] * n
+        for _ in range(total):
+            x[random.randrange(n)] += 1
+        return x
+
+    if total > n * max_val // 2:
+        comp_total = n * max_val - total
+        comp = random_vector3(n, comp_total, max_val)
+        return [max_val - x for x in comp]
+
+    while True:
+        cuts = sorted(random.sample(range(total + 1), n - 1))
+        cuts = [0] + cuts + [total]
+        x = [cuts[i+1] - cuts[i] for i in range(n)]
+        if all(v <= max_val for v in x):
+            return x
+
+
+def random_diag_vector(m, n, total):
+    length = m + n - 1
+
+    max_vals = []
+    for i in range(length):
+        upper = min(i + 1, m, n, m + n - i - 1)
+        max_vals.append(upper)
+
+    vec = []
+    remaining_sum = total
+
+    for i in range(length):
+        remaining_slots = length - i
+
+        if remaining_slots == 1:
+            val = remaining_sum
+        else:
+            remaining_max = sum(max_vals[i+1:])
+
+            low = max(0, remaining_sum - remaining_max)
+            high = min(max_vals[i], remaining_sum)
+
+            val = random.randint(low, high)
+
+        vec.append(val)
+        remaining_sum -= val
+
+    return np.array(vec)
+
+
+
+def random_diag_vector2(m, n, total):
+    length = m + n - 1
+
+    max_vals = []
+    for i in range(length):
+        upper = min(i + 1, m, n, m + n - i - 1)
+        max_vals.append(upper)
+
+
+    x = [0] * length
+    available = list(range(length))
+
+    for _ in range(total):
+        i = random.choice(available)
+        x[i] += 1
+
+        if x[i] == max_vals[i]:
+            available.remove(i)
+
+    return np.array(x)
+
+
+def random_bitmap(m, n, density):
+    total_cells = m * n
+
+    if density > total_cells:
+        raise ValueError("Density exceeds number of cells")
+
+    grid = [0] * total_cells
+
+    ones_positions = random.sample(range(total_cells), density)
+    for pos in ones_positions:
+        grid[pos] = 1
+
+    return np.array(grid).reshape((m, n))
+
+def random_bitmap3d(m, n, p, density):
+    total_cells = m * n * p
+
+    if density > total_cells:
+        raise ValueError("Density exceeds number of cells")
+
+    grid = [0] * total_cells
+
+    ones_positions = random.sample(range(total_cells), density)
+    for pos in ones_positions:
+        grid[pos] = 1
+
+    return np.array(grid).reshape((m, n, p))
+
+
+def random_axis_vector(m, n, total, max_val):
+    size = m * n
+    x = []
+    remaining_sum = total
+
+    for i in range(size):
+        remaining_slots = size - i
+
+        if remaining_slots == 1:
+            x.append(remaining_sum)
+        else:
+            low = max(0, remaining_sum - max_val * (remaining_slots - 1))
+            high = min(max_val, remaining_sum)
+
+            val = random.randint(low, high)
+            x.append(val)
+            remaining_sum -= val
+
+    return np.array(x).reshape((m, n))
+
+
+def random_axis_vector2(m, n, total, max_val):
+    size = m * n
+
+    x = [0] * size
+    available = list(range(size))
+
+    for _ in range(total):
+        i = random.choice(available)
+        x[i] += 1
+
+        if x[i] == max_val:
+            available.remove(i)
+
+    return np.array(x).reshape((m, n))
