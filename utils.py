@@ -803,25 +803,31 @@ def random_vector2(n, total, max_val):
     return x
 
 import numpy as np
+import random
 
 def random_vector3(n, total, max_val):
-    if total < n:
-        x = [0] * n
-        for _ in range(total):
-            x[random.randrange(n)] += 1
-        return x
-
     if total > n * max_val // 2:
         comp_total = n * max_val - total
         comp = random_vector3(n, comp_total, max_val)
         return [max_val - x for x in comp]
+    
+    n_prime = n
+    M_prime = total + n
 
-    while True:
-        cuts = sorted(random.sample(range(total + 1), n - 1))
-        cuts = [0] + cuts + [total]
-        x = [cuts[i+1] - cuts[i] for i in range(n)]
-        if all(v <= max_val for v in x):
-            return x
+    cuts = random.sample(range(1, M_prime), n_prime - 1)
+    cuts.sort()
+
+    cuts = [0] + cuts + [M_prime]
+
+    x = [cuts[i+1] - cuts[i] for i in range(n_prime)]
+
+    result = [v - 1 for v in x]
+
+    if any(v > max_val for v in result):
+        return random_vector3(n, total, max_val)
+
+
+    return result
 
 
 def random_diag_vector(m, n, total):
