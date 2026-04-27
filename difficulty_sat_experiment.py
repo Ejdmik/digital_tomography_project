@@ -15,6 +15,10 @@ def build_instance(m, n, encoding, density):
     vpool = IDPool()
     cnf = CNF()
 
+    for i in range(1, m+1):
+        for j in range(1, n+1):
+            vpool.id((i, j))
+
     bitmap = random_bitmap(m,n,density)
 
     rows = get_r_vector(bitmap)
