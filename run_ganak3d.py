@@ -5,61 +5,59 @@ import time
 import statistics
 import subprocess
 from pysat.formula import CNF, IDPool
+from pysat.card import CardEnc
 from utils import *
 
-m, n = 15, 15
+m, n, p = 6, 6, 6
 RUNS = 100
 GANAK_PATH = "./ganak_executable"
 ENCODING = 1
 
-def write_cnf_with_header(cnf, filepath, m, n):
-    show_vars = " ".join(str(i) for i in range(1, m * n + 1))
+
+def write_cnf_with_header(cnf, filepath, m, n, p):
+    show_vars = " ".join(str(i) for i in range(1, m * n * p + 1))
     
     with open(filepath, "w") as f:
-        # Write pmc headers first
         f.write("c t pmc\n")
         f.write(f"c p show {show_vars} 0\n")
-        # Write p cnf line
-        num_vars = cnf.nv
-        num_clauses = len(cnf.clauses)
-        f.write(f"p cnf {num_vars} {num_clauses}\n")
-        # Write clauses
+        f.write(f"p cnf {cnf.nv} {len(cnf.clauses)}\n")
         for clause in cnf.clauses:
             f.write(" ".join(map(str, clause)) + " 0\n")
 
-def build_instance(m, n, encoding, density):
+
+
+def build_instance(m, n, p, encoding, density):
     vpool = IDPool()
     cnf = CNF()
 
+    # create variables
     for i in range(1, m+1):
         for j in range(1, n+1):
-            vpool.id((i, j))
+            for k in range(1, p+1):
+                vpool.id((i, j, k))
 
-    bitmap = random_bitmap(m,n,density)
+    bitmap = random_bitmap3d(m, n, p, density)
 
-    rows = get_r_vector(bitmap)
-    cols = get_c_vector(bitmap)
-    a = get_a_vector(bitmap)
-    b = get_b_vector(bitmap)
-    a5 = get_a_with_slope_vector(bitmap, 5)
-    b5 = get_b_with_slope_vector(bitmap, 5)
-    f = get_frames_vector(bitmap)
+    # projections
+    P_xy = np.sum(bitmap, axis=2)  # sum over z
+    P_xz = np.sum(bitmap, axis=1)  # sum over y
+    P_yz = np.sum(bitmap, axis=0)  # sum over x
 
+    boxes = get_boxes_vector(bitmap)
 
-    encode_rows(cnf, vpool, rows, encoding, n)
-    encode_cols(cnf, vpool, cols, encoding, m)
-    encode_a_diagonals(cnf, vpool, a, encoding, m, n)
-    encode_b_diagonals(cnf, vpool, b, encoding, m, n)
-    encode_a_slope_diagonals(cnf, vpool, a5, 5, encoding, m, n)
-    encode_b_slope_diagonals(cnf, vpool, b5, 5, encoding, m, n)
-    encode_frames(cnf, vpool, f, encoding, m, n)
+    # encode constraints
+    encode_xy(cnf, vpool, P_xy, encoding, p)
+    encode_xz(cnf, vpool, P_xz, encoding, n)
+    encode_yz(cnf, vpool, P_yz, encoding, m)
 
+    encode_plane_diagonals_from_bitmap(cnf, vpool, bitmap, m, n, p, encoding)
+
+    encode_boxes(cnf, vpool, boxes, encoding, m, n, p)
 
     return cnf
 
 
 def run_ganak(cnf_file):
-
     result = subprocess.run(
         [GANAK_PATH, cnf_file],
         stdout=subprocess.PIPE,
@@ -68,7 +66,6 @@ def run_ganak(cnf_file):
     )
 
     output = result.stdout
-
     count = None
     solve_time = None
 
@@ -91,10 +88,10 @@ def main():
     times = []
 
     for i in range(RUNS):
-        cnf = build_instance(m, n, ENCODING, density)
+        cnf = build_instance(m, n, p, ENCODING, density)
 
         cnf_file = f"tmp_{density}_{i}.cnf"
-        write_cnf_with_header(cnf, cnf_file, m, n)
+        write_cnf_with_header(cnf, cnf_file, m, n, p)
 
         try:
             count, t = run_ganak(cnf_file)
@@ -105,10 +102,12 @@ def main():
             print(f"Warning: ganak failed on run {i}, skipping")
             continue
 
+        print(f"count={count} time={t}", flush=True)
+
         counts.append(count)
         times.append(t)
 
-    with open(f"results_{density}.txt", "w") as f:
+    with open(f"ganak3d_results_{density}.txt", "w") as f:
         f.write(f"density={density}\n")
         f.write(f"median_count={statistics.median(counts)}\n")
         f.write(f"median_time={statistics.median(times)}\n")

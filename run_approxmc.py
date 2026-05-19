@@ -9,7 +9,6 @@ from utils import *
 
 m, n = 15, 15
 RUNS = 100
-GANAK_PATH = "./ganak_executable"
 ENCODING = 1
 
 def write_cnf_with_header(cnf, filepath, m, n):
@@ -50,18 +49,18 @@ def build_instance(m, n, encoding, density):
     encode_cols(cnf, vpool, cols, encoding, m)
     encode_a_diagonals(cnf, vpool, a, encoding, m, n)
     encode_b_diagonals(cnf, vpool, b, encoding, m, n)
-    encode_a_slope_diagonals(cnf, vpool, a5, 5, encoding, m, n)
-    encode_b_slope_diagonals(cnf, vpool, b5, 5, encoding, m, n)
-    encode_frames(cnf, vpool, f, encoding, m, n)
+    #encode_a_slope_diagonals(cnf, vpool, a5, 5, encoding, m, n)
+    #encode_b_slope_diagonals(cnf, vpool, b5, 5, encoding, m, n)
+    #encode_frames(cnf, vpool, f, encoding, m, n)
 
 
     return cnf
 
 
-def run_ganak(cnf_file):
+def run_approxmc(cnf_file):
 
     result = subprocess.run(
-        [GANAK_PATH, cnf_file],
+        ["./approxmc", cnf_file],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         universal_newlines=True
@@ -73,10 +72,21 @@ def run_ganak(cnf_file):
     solve_time = None
 
     for line in output.splitlines():
-        if "exact arb int" in line:
-            count = int(line.split()[-1])
-        if "Total time" in line:
-            solve_time = float(line.split()[-1])
+        line = line.strip()
+
+        # Parse count
+        if line.startswith("s mc"):
+            try:
+                count = int(line.split()[2])
+            except (IndexError, ValueError):
+                pass
+
+        # Parse total time
+        if "[appmc+arjun] Total time:" in line:
+            try:
+                solve_time = float(line.split(":")[-1].strip())
+            except (IndexError, ValueError):
+                pass
 
     return count, solve_time
 
@@ -93,22 +103,23 @@ def main():
     for i in range(RUNS):
         cnf = build_instance(m, n, ENCODING, density)
 
-        cnf_file = f"tmp_{density}_{i}.cnf"
+        cnf_file = f"approxmc_tmp_{density}_{i}.cnf"
         write_cnf_with_header(cnf, cnf_file, m, n)
 
         try:
-            count, t = run_ganak(cnf_file)
+            count, t = run_approxmc(cnf_file)
         finally:
             os.remove(cnf_file)
         
         if count is None:
-            print(f"Warning: ganak failed on run {i}, skipping")
+            print(f"Warning: approxmc failed on run {i}, skipping")
             continue
 
+        print(f"count={count} time={t}", flush=True)
         counts.append(count)
         times.append(t)
 
-    with open(f"results_{density}.txt", "w") as f:
+    with open(f"approxmc_results_{density}.txt", "w") as f:
         f.write(f"density={density}\n")
         f.write(f"median_count={statistics.median(counts)}\n")
         f.write(f"median_time={statistics.median(times)}\n")

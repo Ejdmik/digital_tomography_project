@@ -1,11 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=exact
-#SBATCH --output=logs/exact_%A_%a.out
-#SBATCH --partition=cpulong
-#SBATCH --time=1-00:00:00
+#SBATCH --partition=cpufast
 #SBATCH --nodes=1
-#SBATCH --mem=8G
-#SBATCH --array=0-6
+#SBATCH --mem=4G
+#SBATCH --array=0-36
 
 echo "Running on $(hostname)"
 echo "Starting at $(date)"
