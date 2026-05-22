@@ -22,8 +22,6 @@ def build_instance(m, n, p, encoding, density):
     yz = get_axis_vectors(bitmap, 0)
 
 
-
-    # encodings
     encode_xy(cnf, vpool, xy, encoding, p)
     encode_xz(cnf, vpool, xz, encoding, n)
     encode_yz(cnf, vpool, yz, encoding, m)
@@ -49,11 +47,11 @@ def main():
     job_id = int(os.environ.get("SLURM_ARRAY_TASK_ID", 0))
     seed = 1234 + job_id
     np.random.seed(seed)
-    outfile = f"difficulty_sat_6x6x6_dens_tot_{job_id}.txt"
+    outfile = f"difficulty_sat_6x6x6_dens_{job_id}.txt"
 
     m, n, p = 6, 6, 6
     runs = 1000
-    encoding = 2 # seqcounter
+    encoding = EncType.seqcounter # seqcounter
 
     times = []
 

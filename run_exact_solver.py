@@ -11,10 +11,10 @@ if __name__ == "__main__":
     job_id = int(sys.argv[1])
     seed = 1234 + job_id
     np.random.seed(seed)
-    outfile = f"exact_sat_6x6_dens_{job_id}.txt"
+    outfile = f"exact_sat_mean_dens_{job_id}.txt"
 
-    m, n = 6, 6
-    runs = 100
+    m, n = 15, 15
+    runs = 1000
 
     results = []
     times = []
@@ -33,12 +33,13 @@ if __name__ == "__main__":
 
         results.append(number)
         times.append(t)
+        print(f"count={number}, time={t}", flush=True)
 
 
     with open(outfile, "w") as f:
         f.write(f"density={job_id}\n")
         f.write(f"median_count={statistics.median(results)}\n")
-        f.write(f"median_time={statistics.median(times)}\n")
+        f.write(f"mean_time={statistics.mean(times)}\n")
 
     print("Finished.")
 

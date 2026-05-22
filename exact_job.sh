@@ -2,8 +2,8 @@
 #SBATCH --job-name=exact
 #SBATCH --partition=cpufast
 #SBATCH --nodes=1
-#SBATCH --mem=4G
-#SBATCH --array=0-36
+#SBATCH --mem=8G
+#SBATCH --array=0-225
 
 echo "Running on $(hostname)"
 echo "Starting at $(date)"

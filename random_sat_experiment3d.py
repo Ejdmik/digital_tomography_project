@@ -11,48 +11,31 @@ from utils import *
 
 
 def build_instance(m, n, p, encoding, density):
-    # generator gen: 0 = random_axis_vector,  1 = random_axis_vector.shuffle(), 2 = random_axis_vector2
+    # generator gen: 0 = random_axis_vector,  1  = random_axis_vector2
     vpool = IDPool()
     cnf = CNF()
 
-    xy_gen = 2
-    xz_gen = 2
-    yz_gen = 2
+    xy_gen = 1
+    xz_gen = 1
+    yz_gen = 1
 
     # random projections
     if xy_gen == 0:
         xy = random_axis_vector(m, n, density, p)
-    elif xy_gen == 1:
-        xy = random_axis_vector(m, n, density, p)
-        xy = xy.flatten()
-        np.random.shuffle(xy)
-        xy = xy.reshape((m, n))
     else:
         xy = random_axis_vector2(m, n, density, p)
 
     if xz_gen == 0:
         xz = random_axis_vector(m, p, density, n)
-    elif xz_gen == 1:
-        xz = random_axis_vector(m, p, density, n)
-        xz = xz.flatten()
-        np.random.shuffle(xz)
-        xz = xz.reshape((m, n))
     else:
         xz = random_axis_vector2(m, p, density, n)
 
     if yz_gen == 0:
         yz = random_axis_vector(n, p, density, m)
-    elif yz_gen == 1:
-        yz = random_axis_vector(n, p, density, m)
-        yz = yz.flatten()
-        np.random.shuffle(yz)
-        yz = yz.reshape((m, n))
     else:
         yz = random_axis_vector2(n, p, density, m)
     
 
-
-    # encodings
     encode_xy(cnf, vpool, xy, encoding, p)
     encode_xz(cnf, vpool, xz, encoding, n)
     encode_yz(cnf, vpool, yz, encoding, m)
@@ -79,7 +62,7 @@ def main():
 
     m, n, p = 6, 6, 6
     runs = 1000
-    encoding = 1 # seqcounter
+    encoding = EncType.seqcounter
 
     sat_count = 0
 

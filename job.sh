@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=tomography
-#SBATCH --output=logs_%A_%a.txt
 #SBATCH --partition=cpulong
 #SBATCH --time=2-00:00:00
 #SBATCH --nodes=1

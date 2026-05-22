@@ -3,16 +3,19 @@
 # densities = []
 # values = []
 # med_times = []
+# raw_densities = []
 
-# with open("semi_random_sat_rc_solvability5.txt") as f:
+
+# with open("semi_random_sat_rcab_solvability.txt") as f:
 #     for line in f:
 #         # random_sat (or exact_sat)
 #         line = line.strip()
 #         parts = line.replace(" ", "").split(",")
 
 #         d = int(parts[0].split("=")[1])
-#         v = int(parts[1].split("=")[1])
+#         v = float(parts[1].split("=")[1])
 
+#         raw_densities.append(d)
 #         densities.append(d/225)
 #         values.append(v/1000) # v/1000 if SAT ratio
 
@@ -23,88 +26,112 @@
 #         # d = int(parts[0].split("=")[1])
 #         # med = float(parts[1].split("=")[1])
 
-#         # densities.append(d/216)
-#         # med_times.append(med)
+#         # densities.append(d/225)
+#         # med_times.append(med*1000)
 
 
-# data = sorted(zip(densities, values))
-# densities, values = zip(*data)
+# data = sorted(zip(raw_densities, densities, values))
+# raw_densities, densities, values = zip(*data)
 
-# #data = sorted(zip(densities, med_times))
-# #densities, med_times = zip(*data)
+
+# # data = sorted(zip(densities, med_times))
+# # densities, med_times = zip(*data)
+
+# from math import comb
+
+# def count_vectors(n, m, k):
+#     total = 0
+#     for j in range(k // (m + 1) + 1):
+#         total += (-1)**j * comb(n, j) * comb(n + k - j*(m+1) - 1, k - j*(m+1))
+#     return total
+
+# theoretical = []
+
+# for k in raw_densities:
+#     denom = count_vectors(15, 15, k)
+    
+#     if denom == 0:
+#         theoretical.append(float('nan'))  # avoid division by zero
+#     else:
+#         val = comb(225, k) / (denom ** 2)
+#         val = val * 10**(min(k, 225-k)/11.5)
+#         theoretical.append(val)
 
 # # plot
 # plt.figure()
+# plt.axvline(0.5, color='grey', linestyle='--', linewidth=0.5)
 
-# plt.plot(densities, values)
+# # # plt.plot(densities2, counts, label="Experimental (EXACT) - mean", color="deepskyblue")
+
+
+# plt.plot(densities, values, marker="x")
+# #plt.axhline(y=4e31, linestyle='--', label="Uniform average estimate", color="green")
+# #plt.plot(densities, theoretical, linestyle='--', label="Density-aware estimate (modified)", color="darkorange")
 
 # #plt.plot(densities, med_times)
 
 # #plt.yscale("log")
+# #plt.legend(loc='center', bbox_to_anchor=(0.5, 0.18))
+
 
 
 # plt.xlabel("Density")
 
-# plt.ylabel("SAT ratio")
-# #plt.ylabel("Median time (Seconds)")
-# #plt.ylabel("Number of solutions")
-
-# plt.title("SAT solvability (15x15 grid)")
-# #plt.title("SAT solving time vs Density (15x15 grid)")
-# #plt.title("Median number of solutions using solver EXACT")
+# plt.ylabel("SAT Ratio")
+# #plt.ylabel("Solving Time (ms)")
+# #plt.ylabel("Number of Solutions")
 
 # plt.grid(True)
 
-# plt.savefig("semi_random_sat_solvability_rc_graph5.png", dpi=300)
+# plt.savefig("random_sat_rcab_graph.png", dpi=300)
 # plt.show()
 
-
-#semi_random_sat_solvability:
-#rc: 1 = balls into bins both, 2 = jeden tak, druhy tak, 3 = oba slozitejsi zpusob, 4 = oba slozitejsi zpusob zpermutovany, 5 = random_vector3 oba
-#ab: 1 = slozitejsi zpusob oba
-
-#3d semi random
-# 1 = balls into bins, 2 = vsechno slozitejsi zpusob, 3 = vsehcno slozite a zpermutovany ... to nemelo ani smysl
-
+# ----------------------------------------------------------------------------------------------------
 
 import matplotlib.pyplot as plt
+import numpy as np
 
-data = {}
-with open("ganak_results_6x6_rc_seq.txt") as f:
-    current = {}
-    for line in f:
-        line = line.strip()
-        if line.startswith("density="):
-            if current:
-                data[current["density"]] = current
-            current = {"density": int(line.split("=")[1])}
-        elif line.startswith("median_count="):
-            current["median_count"] = float(line.split("=")[1])
-        elif line.startswith("median_time="):
-            current["median_time"] = float(line.split("=")[1])
-    if current:
-        data[current["density"]] = current
+def load_file(path):
+    data = {}
+    with open(path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            # format: density=121, med_time=0.00037
+            parts = line.split(",")
+            density = int(parts[0].split("=")[1])
+            density = density / 216
+            time = float(parts[1].split("=")[1])
+            data[density] = time
+    return data
 
-# Sort by density and normalize
-rows = sorted(data.values(), key=lambda x: x["density"])
-x = [r["density"] / 36.0 for r in rows]
-counts = [r["median_count"] for r in rows]
-times = [r["median_time"] for r in rows]
 
-fig, ax1 = plt.subplots(figsize=(10, 5))
+seq = load_file("difficulty_sat_6x6x6_seq_data.txt")
+tot = load_file("difficulty_sat_6x6x6_tot_new.txt")
+card = load_file("difficulty_sat_6x6x6_card_data.txt")
 
-ax1.plot(x, counts, color="steelblue", marker="o", markersize=3, label="Median count")
-ax1.set_xlabel("Density")
-ax1.set_ylabel("Median number of solutions", color="steelblue")
-ax1.tick_params(axis="y", labelcolor="steelblue")
-ax1.set_yscale("log")
+def to_sorted_lists(d):
+    xs = sorted(d.keys())
+    ys = [d[x] * 1000 for x in xs]  # convert to ms
+    return xs, ys
 
-ax2 = ax1.twinx()
-ax2.plot(x, times, color="tomato", marker="s", markersize=3, label="Median time")
-ax2.set_ylabel("Median solving time (s)", color="tomato")
-ax2.tick_params(axis="y", labelcolor="tomato")
+x1, y1 = to_sorted_lists(seq)
+x2, y2 = to_sorted_lists(tot)
+x3, y3 = to_sorted_lists(card)
 
-plt.title("Ganak: 6×6 bitmap — solutions and solving time by density")
-fig.tight_layout()
-plt.savefig("ganak_results_6x6_rc_seq.png", dpi=150)
+plt.figure()
+
+plt.plot(x3, y3, label="CardNetw")
+plt.plot(x2, y2, label="Totalizer")
+plt.plot(x1, y1, label="SeqCounter")
+
+plt.axvline(0.5, color='grey', linestyle='--', linewidth=0.5)
+
+plt.xlabel("Density")
+plt.ylabel("Solving Time (ms)")
+plt.legend(loc='center', bbox_to_anchor=(0.5, 0.55))
+plt.grid(True)
+plt.savefig("difficulty_sat_6x6x6_all_graph.png", dpi=300)
+
 plt.show()

@@ -213,7 +213,6 @@ def encode_frames(cnf, vpool, frames, encoding, m, n):
 import matplotlib.pyplot as plt
 
 def show_model(model, vpool, m, n, position=None):
-    # Matrix of nans
     matrix = np.empty((m, n), dtype=int)
     matrix[:] = -1
 
@@ -296,7 +295,6 @@ def bitmap_to_model(bitmap, vpool):
 import time
 import statistics
 
-# bool rowcol, bool diags, int k_slope (if 0 then it is turned off), frame
 def encode_tomography(encoding, bitmap, m, n, rowcol=True, diags=True, k_slope=0, frames=False):
     vpool = IDPool()
     cnf = CNF()
@@ -332,15 +330,15 @@ def encode_tomography(encoding, bitmap, m, n, rowcol=True, diags=True, k_slope=0
 def measure_encoding_performance(encoding, bitmap, m, n, rowcol=True, diags=True, k_slope=0, frames=False):
     """Build and solve the CNF, measuring size and time."""
 
-    t0 = time.time()
+    t0 = time.perf_counter()
     cnf, vpool = encode_tomography(encoding, bitmap, m, n, rowcol, diags, k_slope, frames)
-    build_time = time.time() - t0
+    build_time = time.perf_counter() - t0
 
-    t1 = time.time()
+    t1 = time.perf_counter()
     #solver = Cadical195(bootstrap_with=cnf)
     solver = Glucose3(bootstrap_with=cnf)
     sat = solver.solve()
-    solve_time = time.time() - t1
+    solve_time = time.perf_counter() - t1
 
     n_vars = max(abs(lit) for clause in cnf.clauses for lit in clause)
     n_clauses = len(cnf.clauses)
@@ -361,7 +359,7 @@ def measure_encoding_performance(encoding, bitmap, m, n, rowcol=True, diags=True
 # script for RCI cluster which runs each scenario multiple times and computes the average
 def run_experiment(bitmap, reps_num=1, rowcol=True, diags=False, k_slope=0, frames=False, scenario_name="unknown", job_id="local"):
     m, n = bitmap.shape
-    encodings = [1, 2, 3]  # 1=seqcounter, 2=totalizer, 3=cardnetw
+    encodings = [1, 6, 3]  # 1=seqcounter, 6=totalizer, 3=cardnetwrk
 
     print(f"{'Scenario':<30} {'Encoding':<10} {'Vars':>8} {'Clauses':>10} "
       f"{'BuildAvg':>10} {'SolveAvg':>10} {'SAT?':>6}")
@@ -427,47 +425,44 @@ def get_axis_vectors(bitmap, axis):
 
 from collections import defaultdict
 
-def compute_plane_diagonals(bitmap3d, coords2d, vpool):
-    """
-    Computes diagonal and antidiagonal SAT literals and bounds
-    directly from the bitmap.
+def compute_plane_diagonals(bitmap3d, m, n, p):
+    result = {
+        'xy_a': defaultdict(lambda: {'coords': [], 'bound': 0}),
+        'xy_b': defaultdict(lambda: {'coords': [], 'bound': 0}),
+        'xz_a': defaultdict(lambda: {'coords': [], 'bound': 0}),
+        'xz_b': defaultdict(lambda: {'coords': [], 'bound': 0}),
+        'yz_a': defaultdict(lambda: {'coords': [], 'bound': 0}),
+        'yz_b': defaultdict(lambda: {'coords': [], 'bound': 0}),
+    }
 
-    Returns:
-        diag_lits, diag_bounds
-        anti_lits, anti_bounds
-    """
+    for i in range(1, m + 1):      # x-axis (rows)
+        for j in range(1, n + 1):  # y-axis (cols)
+            for k in range(1, p + 1):  # z-axis (depth)
 
-    diag_lits = defaultdict(list)
-    diag_bounds = defaultdict(int)
+                val = bitmap3d[i-1, j-1, k-1]
 
-    anti_lits = defaultdict(list)
-    anti_bounds = defaultdict(int)
+                # xy-plane: sum over all k, diagonals in i,j
+                result['xy_a'][i + j]['coords'].append((i, j, k))
+                result['xy_a'][i + j]['bound'] += val
 
-    for i, row in enumerate(coords2d):
-        for j, (z,y,x) in enumerate(row):
+                result['xy_b'][i - j]['coords'].append((i, j, k))
+                result['xy_b'][i - j]['bound'] += val
 
-            lit = vpool.id((z,y,x))
-            val = bitmap3d[z-1, y-1, x-1]
+                # xz-plane: sum over all j, diagonals in i,k
+                result['xz_a'][i + k]['coords'].append((i, j, k))
+                result['xz_a'][i + k]['bound'] += val
 
-            d = i - j
-            a = i + j
+                result['xz_b'][i - k]['coords'].append((i, j, k))
+                result['xz_b'][i - k]['bound'] += val
 
-            diag_lits[d].append(lit)
-            diag_bounds[d] += val
+                # yz-plane: sum over all i, diagonals in j,k
+                result['yz_a'][j + k]['coords'].append((i, j, k))
+                result['yz_a'][j + k]['bound'] += val
 
-            anti_lits[a].append(lit)
-            anti_bounds[a] += val
+                result['yz_b'][j - k]['coords'].append((i, j, k))
+                result['yz_b'][j - k]['bound'] += val
 
-    diag_keys = sorted(diag_lits.keys())
-    anti_keys = sorted(anti_lits.keys())
-
-    diag_lits_list = [diag_lits[k] for k in diag_keys]
-    diag_bounds_list = [diag_bounds[k] for k in diag_keys]
-
-    anti_lits_list = [anti_lits[k] for k in anti_keys]
-    anti_bounds_list = [anti_bounds[k] for k in anti_keys]
-
-    return diag_lits_list, diag_bounds_list, anti_lits_list, anti_bounds_list
+    return result
 
 
 def get_boxes_vector(bitmap3d):
@@ -543,68 +538,28 @@ def encode_yz(cnf, vpool, P_yz, encoding, m):
             )
 
 
-def encode_plane_diagonals_from_bitmap(cnf, vpool, bitmap3d, coords2d, encoding):
+def encode_plane_diagonals_from_bitmap(cnf, vpool, bitmap3d, m, n, p, encoding):
+    diagonals = compute_plane_diagonals(bitmap3d, m, n, p)
 
-    diag_lits, diag_bounds, anti_lits, anti_bounds = \
-        compute_plane_diagonals(bitmap3d, coords2d, vpool)
+    for family_name, family in diagonals.items():
+        for d_idx, data in family.items():
+            coords = data['coords']
+            bound = data['bound']
 
-    for lits, bound in zip(diag_lits, diag_bounds):
+            lits = [vpool.id(coord) for coord in coords]
 
-        if bound > len(lits):
-            raise ValueError(f"Impossible diagonal bound {bound}>{len(lits)}")
+            if bound > len(lits):
+                raise ValueError(
+                    f"Impossible bound in {family_name}[{d_idx}]: "
+                    f"{bound} > {len(lits)}"
+                )
 
-        cnf.extend(CardEnc.equals(
-            lits=lits,
-            bound=bound,
-            vpool=vpool,
-            encoding=encoding
-        ))
-
-    for lits, bound in zip(anti_lits, anti_bounds):
-
-        if bound > len(lits):
-            raise ValueError(f"Impossible anti bound {bound}>{len(lits)}")
-
-        cnf.extend(CardEnc.equals(
-            lits=lits,
-            bound=bound,
-            vpool=vpool,
-            encoding=encoding
-        ))
-
-def plane_xy_coords(m,n,p,z):
-    return [[(z,y,x) for x in range(1,p+1)] for y in range(1,n+1)]
-
-def plane_xz_coords(m,n,p,y):
-    return [[(z,y,x) for x in range(1,p+1)] for z in range(1,m+1)]
-
-def plane_yz_coords(m,n,p,x):
-    return [[(z,y,x) for y in range(1,n+1)] for z in range(1,m+1)]
-
-def encode_all_diagonals(cnf, vpool, bitmap3d, encoding):
-
-    m,n,p = bitmap3d.shape
-
-    # XY planes
-    for z in range(1,m+1):
-        coords = plane_xy_coords(m,n,p,z)
-        encode_plane_diagonals_from_bitmap(
-            cnf, vpool, bitmap3d, coords, encoding
-        )
-
-    # XZ planes
-    for y in range(1,n+1):
-        coords = plane_xz_coords(m,n,p,y)
-        encode_plane_diagonals_from_bitmap(
-            cnf, vpool, bitmap3d, coords, encoding
-        )
-
-    # YZ planes
-    for x in range(1,p+1):
-        coords = plane_yz_coords(m,n,p,x)
-        encode_plane_diagonals_from_bitmap(
-            cnf, vpool, bitmap3d, coords, encoding
-        )
+            cnf.extend(CardEnc.equals(
+                lits=lits,
+                bound=bound,
+                vpool=vpool,
+                encoding=encoding
+            ))
 
 
 def encode_boxes(cnf, vpool, boxes, encoding, m, n, p):
@@ -671,7 +626,7 @@ def encode_tomography3d(encoding, bitmap3d, rowcol3d=True, diags3d=True, boxes=F
 
     
     if diags3d:
-        encode_all_diagonals(cnf, vpool, bitmap3d, encoding)
+        encode_plane_diagonals_from_bitmap(cnf, vpool, bitmap3d, encoding)
 
 
     if boxes:
@@ -683,7 +638,7 @@ def encode_tomography3d(encoding, bitmap3d, rowcol3d=True, diags3d=True, boxes=F
 
 def measure_encoding_performance3d(encoding, bitmap3d, rowcol3d=True, diags3d=True, boxes=False):
 
-    t0 = time.time()
+    t0 = time.perf_counter()
     cnf, vpool = encode_tomography3d(
         encoding,
         bitmap3d,
@@ -691,13 +646,13 @@ def measure_encoding_performance3d(encoding, bitmap3d, rowcol3d=True, diags3d=Tr
         diags3d=diags3d,
         boxes=boxes
     )
-    build_time = time.time() - t0
+    build_time = time.perf_counter() - t0
 
-    t1 = time.time()
+    t1 = time.perf_counter()
     #solver = Cadical195(bootstrap_with=cnf)
     solver = Glucose3(bootstrap_with=cnf)
     sat = solver.solve()
-    solve_time = time.time() - t1
+    solve_time = time.perf_counter() - t1
 
     n_vars = max(abs(lit) for clause in cnf.clauses for lit in clause)
     n_clauses = len(cnf.clauses)
@@ -714,7 +669,7 @@ def measure_encoding_performance3d(encoding, bitmap3d, rowcol3d=True, diags3d=Tr
 
 def run_experiment3d(bitmap3d, reps_num=3, rowcol3d=True, diags3d=False, boxes=False, scenario_name="unknown", job_id="local"):
 
-    encodings = [1, 2, 3]  # seqcounter, totalizer, cardnetw
+    encodings = [1, 6, 3]  # seqcounter, totalizer, cardnetw
 
     print(f"{'Scenario':<30} {'Encoding':<10} {'Vars':>10} {'Clauses':>12} "
           f"{'BuildAvg':>10} {'SolveAvg':>10} {'SAT?':>6}")
@@ -769,6 +724,7 @@ def run_experiment3d(bitmap3d, reps_num=3, rowcol3d=True, diags3d=False, boxes=F
 import random
 
 def random_vector(n, total, max_val):
+    #sequential slot filling
     x = []
     remaining_sum = total
 
@@ -790,6 +746,7 @@ def random_vector(n, total, max_val):
 
 
 def random_vector2(n, total, max_val):
+    #incremental ball placement
     x = [0] * n
     available = list(range(n))  
 
@@ -806,6 +763,7 @@ import numpy as np
 import random
 
 def random_vector3(n, total, max_val):
+    #uniform composition sampling
     if total > n * max_val // 2:
         comp_total = n * max_val - total
         comp = random_vector3(n, comp_total, max_val)
@@ -882,6 +840,49 @@ def random_diag_vector2(m, n, total):
 
     return np.array(x)
 
+def random_diag_vector3(m, n, total):
+    length = m + n - 1
+    
+    max_vals = []
+    for i in range(length):
+        upper = min(i + 1, m, n, m + n - i - 1)
+        max_vals.append(upper)
+    
+    total_max = sum(max_vals)
+    
+    while True:
+        # Step 1: map to a uniform problem using change of variables
+        # sample y_i uniformly from [0, max_vals[i]] with sum = total
+        # we do this via rejection: sample unrestricted composition
+        # and reject if any component exceeds its bound
+        
+        # sample a composition of 'total' into 'length' non-negative parts
+        # using stars and bars (requires total <= sum of max_vals)
+        if total > total_max:
+            return None  # infeasible
+        
+        # use complementation trick if total > total_max / 2
+        use_complement = total > total_max // 2
+        sample_total = total_max - total if use_complement else total
+        
+        # stars and bars: place (length - 1) cuts among (sample_total + length - 1) positions
+        if sample_total == 0:
+            result = [0] * length
+            if use_complement:
+                result = [max_vals[i] - result[i] for i in range(length)]
+            return result
+        
+        positions = range(1, sample_total + length)
+        cuts = sorted(random.sample(positions, length - 1))
+        cuts = [0] + cuts + [sample_total + length]
+        raw = [cuts[i+1] - cuts[i] - 1 for i in range(length)]
+        
+        # reject if any component exceeds its bound
+        if all(raw[i] <= max_vals[i] for i in range(length)):
+            if use_complement:
+                return [max_vals[i] - raw[i] for i in range(length)]
+            return raw
+
 
 def random_bitmap(m, n, density):
     total_cells = m * n
@@ -947,3 +948,43 @@ def random_axis_vector2(m, n, total, max_val):
             available.remove(i)
 
     return np.array(x).reshape((m, n))
+
+
+
+
+
+#############################################################################################################
+
+
+
+def bitmap_to_latex(arr: np.ndarray) -> None:
+    """Print \\def lines for image.tex from a boolean numpy array."""
+    arr = np.asarray(arr, dtype=bool)
+    rows, cols = arr.shape
+    n = rows + cols - 1
+
+    # bitmap: "fx/fy" pairs, 1-indexed, fx=row from top, fy=col from left
+    bitmap = ','.join(f'{r+1}/{c+1}' for r, c in np.argwhere(arr))
+
+    rowvec = ','.join(str(int(v)) for v in arr.sum(axis=1))
+    colvec = ','.join(str(int(v)) for v in arr.sum(axis=0))
+
+    # "/" anti-diagonal a: cells where row+col == a  (a = 0..n-1)
+    adiag = [
+        sum(int(arr[r, a - r]) for r in range(rows) if 0 <= a - r < cols)
+        for a in range(n)
+    ]
+
+    # "\" diagonal b: cells where row-col == b-(cols-1)  (b = 0..n-1)
+    bdiag = [
+        sum(int(arr[r, r - b + cols - 1]) for r in range(rows) if 0 <= r - b + cols - 1 < cols)
+        for b in range(n)
+    ]
+
+    print(f'\\def\\rows{{{rows}}}')
+    print(f'\\def\\cols{{{cols}}}')
+    print(f'\\def\\bitmap{{{bitmap}}}')
+    print(f'\\def\\rowvec{{{rowvec}}}')
+    print(f'\\def\\colvec{{{colvec}}}')
+    print(f'\\def\\adiagvec{{{",".join(str(v) for v in adiag)}}}')
+    print(f'\\def\\bdiagvec{{{",".join(str(v) for v in bdiag)}}}')

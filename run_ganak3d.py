@@ -43,7 +43,6 @@ def build_instance(m, n, p, encoding, density):
     P_xz = np.sum(bitmap, axis=1)  # sum over y
     P_yz = np.sum(bitmap, axis=0)  # sum over x
 
-    boxes = get_boxes_vector(bitmap)
 
     # encode constraints
     encode_xy(cnf, vpool, P_xy, encoding, p)
@@ -51,8 +50,6 @@ def build_instance(m, n, p, encoding, density):
     encode_yz(cnf, vpool, P_yz, encoding, m)
 
     encode_plane_diagonals_from_bitmap(cnf, vpool, bitmap, m, n, p, encoding)
-
-    encode_boxes(cnf, vpool, boxes, encoding, m, n, p)
 
     return cnf
 
@@ -90,7 +87,7 @@ def main():
     for i in range(RUNS):
         cnf = build_instance(m, n, p, ENCODING, density)
 
-        cnf_file = f"tmp_{density}_{i}.cnf"
+        cnf_file = f"tmp_3d_xyz_{density}_{i}.cnf"
         write_cnf_with_header(cnf, cnf_file, m, n, p)
 
         try:
@@ -102,7 +99,7 @@ def main():
             print(f"Warning: ganak failed on run {i}, skipping")
             continue
 
-        print(f"count={count} time={t}", flush=True)
+        print(f"density={density}, count={count}, time={t}", flush=True)
 
         counts.append(count)
         times.append(t)

@@ -3,7 +3,7 @@
 #SBATCH --partition=cpulong
 #SBATCH --time=2-00:00:00
 #SBATCH --mem=8G
-#SBATCH --array=0-49
+#SBATCH --array=0-225
 
 echo "Running on $(hostname)"
 echo "Starting at $(date)"

@@ -10,7 +10,7 @@ from utils import *
 m, n = 15, 15
 RUNS = 100
 GANAK_PATH = "./ganak_executable"
-ENCODING = 1
+ENCODING = EncType.seqcounter
 
 def write_cnf_with_header(cnf, filepath, m, n):
     show_vars = " ".join(str(i) for i in range(1, m * n + 1))
